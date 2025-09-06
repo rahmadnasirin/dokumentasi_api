@@ -1,94 +1,125 @@
-# Dokumentasi API JadwalDokter
-
-## Overview
-API JadwalDokter digunakan untuk mengelola jadwal praktik dokter. API ini menyediakan endpoint untuk melakukan operasi CRUD (Create, Read, Update, Delete) pada jadwal dokter.
+# API Dokumentasi - CRUD Jadwal Dokter
 
 ## Base URL
 ```
-/api/jadwal
+https://your-api-domain.com/api
 ```
 
 ## Authentication
-Semua endpoint memerlukan autentikasi yang sesuai dengan sistem yang digunakan.
-
-## Response Format
-Semua response menggunakan format JSON dengan struktur standar dari `ResponseFormatter`:
-
-### Success Response
-```json
-{
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Success message"
-  },
-  "data": {
-    // Response data
-  }
-}
+Semua endpoint memerlukan authentication dengan Bearer Token.
+```
+Authorization: Bearer {your-token}
 ```
 
-### Error Response
-```json
-{
-  "meta": {
-    "code": 400,
-    "status": "error", 
-    "message": "Error message"
-  },
-  "data": null
-}
-```
+---
 
-## Data Model
+## 1. Get All Jadwal Dokter
 
-### JadwalDokter Schema
-```json
-{
-  "kode_jadwal": "string (Primary Key)",
-  "kode_dokter": "string",
-  "hari": "enum (senin|selasa|rabu|kamis|jumat|sabtu|minggu)",
-  "jam_mulai": "time (HH:mm)",
-  "jam_selesai": "time (HH:mm)",
-  "durasi_konsultasi": "integer (nullable)",
-  "maksimal_pasien": "integer (nullable)",
-  "is_active": "boolean (default: true)",
-  "keterangan": "text (nullable)",
-  "created_at": "timestamp",
-  "updated_at": "timestamp"
-}
-```
-
-## Endpoints
-
-### 1. Get All Jadwal Dokter
-Mengambil daftar semua jadwal dokter dengan pagination dan filter.
-
-**Endpoint:** `GET /api/jadwal`
-
-**Query Parameters:**
-- `kode_dokter` (optional) - Filter berdasarkan kode dokter
-- `hari` (optional) - Filter berdasarkan hari (senin|selasa|rabu|kamis|jumat|sabtu|minggu)
-- `is_active` (optional) - Filter berdasarkan status aktif (true|false)
-- `per_page` (optional) - Jumlah data per halaman (default: 10)
-- `page` (optional) - Nomor halaman
-
-**Example Request:**
+### Endpoint
 ```http
-GET /api/jadwal?kode_dokter=DOK001&hari=senin&is_active=true&per_page=15&page=1
+GET /jadwal
 ```
 
-**Success Response (200):**
+### Description
+Mendapatkan daftar semua jadwal dokter dengan pagination dan filtering.
+
+### Query Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `per_page` | integer | No | Jumlah data per halaman (default: 10) |
+| `page` | integer | No | Nomor halaman (default: 1) |
+| `kode_dokter` | string | No | Filter berdasarkan kode dokter |
+| `hari` | string | No | Filter berdasarkan hari (senin/selasa/rabu/kamis/jumat/sabtu/minggu) |
+| `is_active` | boolean | No | Filter berdasarkan status aktif (true/false) |
+
+### Example Request
+```http
+GET /jadwal?kode_dokter=DOK001&hari=senin&is_active=true&per_page=15
+```
+
+### Success Response (200 OK)
 ```json
 {
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Jadwal dokter retrieved successfully"
-  },
-  "data": {
-    "jadwal_dokter": [
-      {
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Jadwal dokter retrieved successfully"
+    },
+    "data": {
+        "jadwal_dokter": [
+            {
+                "kode_jadwal": "JDWABCD1234",
+                "kode_dokter": "DOK001",
+                "hari": "senin",
+                "jam_mulai": "08:00",
+                "jam_selesai": "12:00",
+                "durasi_konsultasi": 30,
+                "maksimal_pasien": 20,
+                "is_active": true,
+                "keterangan": "Jadwal pagi",
+                "created_at": "2024-01-01T08:00:00.000000Z",
+                "updated_at": "2024-01-01T08:00:00.000000Z"
+            }
+        ],
+        "pagination": {
+            "current_page": 1,
+            "last_page": 3,
+            "per_page": 15,
+            "total": 45,
+            "from": 1,
+            "to": 15
+        }
+    }
+}
+```
+
+---
+
+## 2. Create New Jadwal Dokter
+
+### Endpoint
+```http
+POST /jadwal/create
+```
+
+### Description
+Membuat jadwal dokter baru.
+
+### Request Body
+```json
+{
+    "kode_dokter": "DOK001",
+    "hari": "senin",
+    "jam_mulai": "08:00",
+    "jam_selesai": "12:00",
+    "durasi_konsultasi": 30,
+    "maksimal_pasien": 20,
+    "is_active": true,
+    "keterangan": "Jadwal pagi"
+}
+```
+
+### Validation Rules
+| Field | Rules |
+|-------|-------|
+| `kode_dokter` | required, string, max:255 |
+| `hari` | required, enum (senin/selasa/rabu/kamis/jumat/sabtu/minggu) |
+| `jam_mulai` | required, time format (H:i) |
+| `jam_selesai` | required, time format (H:i), after:jam_mulai |
+| `durasi_konsultasi` | nullable, integer, min:1 |
+| `maksimal_pasien` | nullable, integer, min:1 |
+| `is_active` | boolean (default: true) |
+| `keterangan` | nullable, string |
+
+### Success Response (201 Created)
+```json
+{
+    "meta": {
+        "code": 201,
+        "status": "success",
+        "message": "Jadwal dokter created successfully"
+    },
+    "data": {
         "kode_jadwal": "JDWABCD1234",
         "kode_dokter": "DOK001",
         "hari": "senin",
@@ -100,305 +131,116 @@ GET /api/jadwal?kode_dokter=DOK001&hari=senin&is_active=true&per_page=15&page=1
         "keterangan": "Jadwal pagi",
         "created_at": "2024-01-01T08:00:00.000000Z",
         "updated_at": "2024-01-01T08:00:00.000000Z"
-      }
-    ],
-    "pagination": {
-      "current_page": 1,
-      "last_page": 3,
-      "per_page": 15,
-      "total": 45,
-      "from": 1,
-      "to": 15
     }
-  }
 }
 ```
 
-### 2. Create Jadwal Dokter
-Membuat jadwal dokter baru.
-
-**Endpoint:** `POST /api/jadwal/create`
-
-**Request Body:**
+### Error Response (422 Validation Error)
 ```json
 {
-  "kode_dokter": "DOK001",
-  "hari": "senin",
-  "jam_mulai": "08:00",
-  "jam_selesai": "12:00",
-  "durasi_konsultasi": 30,
-  "maksimal_pasien": 20,
-  "is_active": true,
-  "keterangan": "Jadwal pagi"
-}
-```
-
-**Validation Rules:**
-- `kode_dokter`: required, string, max:255
-- `hari`: required, enum (senin|selasa|rabu|kamis|jumat|sabtu|minggu)
-- `jam_mulai`: required, format time (H:i)
-- `jam_selesai`: required, format time (H:i), harus setelah jam_mulai
-- `durasi_konsultasi`: optional, integer, min:1
-- `maksimal_pasien`: optional, integer, min:1
-- `is_active`: optional, boolean (default: true)
-- `keterangan`: optional, string
-
-**Success Response (201):**
-```json
-{
-  "meta": {
-    "code": 201,
-    "status": "success",
-    "message": "Jadwal dokter created successfully"
-  },
-  "data": {
-    "kode_jadwal": "JDWABCD1234",
-    "kode_dokter": "DOK001",
-    "hari": "senin",
-    "jam_mulai": "08:00",
-    "jam_selesai": "12:00",
-    "durasi_konsultasi": 30,
-    "maksimal_pasien": 20,
-    "is_active": true,
-    "keterangan": "Jadwal pagi",
-    "created_at": "2024-01-01T08:00:00.000000Z",
-    "updated_at": "2024-01-01T08:00:00.000000Z"
-  }
-}
-```
-
-**Error Response (422) - Validation Error:**
-```json
-{
-  "meta": {
-    "code": 422,
-    "status": "error",
-    "message": "Validation failed"
-  },
-  "data": {
-    "kode_dokter": ["The kode dokter field is required."],
-    "hari": ["The selected hari is invalid."]
-  }
-}
-```
-
-**Error Response (409) - Schedule Conflict:**
-```json
-{
-  "meta": {
-    "code": 409,
-    "status": "error",
-    "message": "Jadwal dokter pada hari dan jam tersebut sudah ada"
-  },
-  "data": null
-}
-```
-
-### 3. Get Jadwal by Dokter
-Mengambil semua jadwal aktif berdasarkan kode dokter.
-
-**Endpoint:** `GET /api/jadwal/dokter/{kodeDokter}`
-
-**Path Parameters:**
-- `kodeDokter`: Kode dokter yang ingin dicari jadwalnya
-
-**Example Request:**
-```http
-GET /api/jadwal/dokter/DOK001
-```
-
-**Success Response (200):**
-```json
-{
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Jadwal dokter retrieved successfully"
-  },
-  "data": [
-    {
-      "kode_jadwal": "JDWABCD1234",
-      "kode_dokter": "DOK001",
-      "hari": "senin",
-      "jam_mulai": "08:00",
-      "jam_selesai": "12:00",
-      "durasi_konsultasi": 30,
-      "maksimal_pasien": 20,
-      "is_active": true,
-      "keterangan": "Jadwal pagi",
-      "created_at": "2024-01-01T08:00:00.000000Z",
-      "updated_at": "2024-01-01T08:00:00.000000Z"
+    "meta": {
+        "code": 422,
+        "status": "error",
+        "message": "Validation failed"
+    },
+    "data": {
+        "kode_dokter": ["The kode dokter field is required."],
+        "hari": ["The selected hari is invalid."],
+        "jam_selesai": ["The jam selesai must be after jam mulai."]
     }
-  ]
 }
 ```
 
-**Error Response (404):**
+### Error Response (409 Schedule Conflict)
 ```json
 {
-  "meta": {
-    "code": 404,
-    "status": "error",
-    "message": "No active schedule found for this doctor"
-  },
-  "data": null
+    "meta": {
+        "code": 409,
+        "status": "error",
+        "message": "Jadwal dokter pada hari dan jam tersebut sudah ada"
+    },
+    "data": null
 }
 ```
 
-### 4. Get Jadwal by Hari
-Mengambil semua jadwal aktif berdasarkan hari.
+---
 
-**Endpoint:** `GET /api/jadwal/hari/{hari}`
+## 3. Get Single Jadwal Dokter
 
-**Path Parameters:**
-- `hari`: Hari yang ingin dicari jadwalnya (senin|selasa|rabu|kamis|jumat|sabtu|minggu)
-
-**Example Request:**
+### Endpoint
 ```http
-GET /api/jadwal/hari/senin
+GET /jadwal/{kode_jadwal}
 ```
 
-**Success Response (200):**
+### Description
+Mendapatkan detail jadwal dokter berdasarkan kode jadwal.
+
+### Path Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `kode_jadwal` | string | Yes | Kode unik jadwal dokter |
+
+### Example Request
+```http
+GET /jadwal/JDWABCD1234
+```
+
+### Success Response (200 OK)
 ```json
 {
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Jadwal dokter retrieved successfully"
-  },
-  "data": [
-    {
-      "kode_jadwal": "JDWABCD1234",
-      "kode_dokter": "DOK001",
-      "hari": "senin",
-      "jam_mulai": "08:00",
-      "jam_selesai": "12:00",
-      "durasi_konsultasi": 30,
-      "maksimal_pasien": 20,
-      "is_active": true,
-      "keterangan": "Jadwal pagi",
-      "created_at": "2024-01-01T08:00:00.000000Z",
-      "updated_at": "2024-01-01T08:00:00.000000Z"
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Jadwal dokter retrieved successfully"
+    },
+    "data": {
+        "kode_jadwal": "JDWABCD1234",
+        "kode_dokter": "DOK001",
+        "hari": "senin",
+        "jam_mulai": "08:00",
+        "jam_selesai": "12:00",
+        "durasi_konsultasi": 30,
+        "maksimal_pasien": 20,
+        "is_active": true,
+        "keterangan": "Jadwal pagi",
+        "created_at": "2024-01-01T08:00:00.000000Z",
+        "updated_at": "2024-01-01T08:00:00.000000Z"
     }
-  ]
 }
 ```
 
-**Error Response (400) - Invalid Day:**
+### Error Response (404 Not Found)
 ```json
 {
-  "meta": {
-    "code": 400,
-    "status": "error",
-    "message": "Invalid day. Must be one of: senin, selasa, rabu, kamis, jumat, sabtu, minggu"
-  },
-  "data": null
+    "meta": {
+        "code": 404,
+        "status": "error",
+        "message": "Jadwal dokter not found"
+    },
+    "data": null
 }
 ```
 
-**Error Response (404):**
-```json
-{
-  "meta": {
-    "code": 404,
-    "status": "error",
-    "message": "No active schedule found for senin"
-  },
-  "data": null
-}
-```
+---
 
-### 5. Get Single Jadwal Dokter
-Mengambil detail jadwal dokter berdasarkan kode jadwal.
+## 4. Update Jadwal Dokter
 
-**Endpoint:** `GET /api/jadwal/{kodeJadwal}`
-
-**Path Parameters:**
-- `kodeJadwal`: Kode jadwal yang ingin diambil detailnya
-
-**Example Request:**
+### Endpoint
 ```http
-GET /api/jadwal/JDWABCD1234
+PUT /jadwal/update/{kode_jadwal}
 ```
 
-**Success Response (200):**
+### Description
+Mengupdate jadwal dokter yang sudah ada. Semua field bersifat optional.
+
+### Path Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `kode_jadwal` | string | Yes | Kode unik jadwal dokter |
+
+### Request Body (All fields optional)
 ```json
 {
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Jadwal dokter retrieved successfully"
-  },
-  "data": {
-    "kode_jadwal": "JDWABCD1234",
-    "kode_dokter": "DOK001",
-    "hari": "senin",
-    "jam_mulai": "08:00",
-    "jam_selesai": "12:00",
-    "durasi_konsultasi": 30,
-    "maksimal_pasien": 20,
-    "is_active": true,
-    "keterangan": "Jadwal pagi",
-    "created_at": "2024-01-01T08:00:00.000000Z",
-    "updated_at": "2024-01-01T08:00:00.000000Z"
-  }
-}
-```
-
-**Error Response (404):**
-```json
-{
-  "meta": {
-    "code": 404,
-    "status": "error",
-    "message": "Jadwal dokter not found"
-  },
-  "data": null
-}
-```
-
-### 6. Update Jadwal Dokter
-Mengupdate jadwal dokter yang sudah ada.
-
-**Endpoint:** `PUT /api/jadwal/update/{kodeJadwal}`
-
-**Path Parameters:**
-- `kodeJadwal`: Kode jadwal yang ingin diupdate
-
-**Request Body:**
-```json
-{
-  "kode_dokter": "DOK001",
-  "hari": "selasa",
-  "jam_mulai": "09:00",
-  "jam_selesai": "13:00",
-  "durasi_konsultasi": 45,
-  "maksimal_pasien": 15,
-  "is_active": true,
-  "keterangan": "Jadwal pagi diperpanjang"
-}
-```
-
-**Validation Rules:**
-- `kode_dokter`: sometimes required, string, max:255
-- `hari`: sometimes required, enum (senin|selasa|rabu|kamis|jumat|sabtu|minggu)
-- `jam_mulai`: sometimes required, format time (H:i)
-- `jam_selesai`: sometimes required, format time (H:i), harus setelah jam_mulai
-- `durasi_konsultasi`: optional, integer, min:1
-- `maksimal_pasien`: optional, integer, min:1
-- `is_active`: optional, boolean
-- `keterangan`: optional, string
-
-**Success Response (200):**
-```json
-{
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Jadwal dokter updated successfully"
-  },
-  "data": {
-    "kode_jadwal": "JDWABCD1234",
     "kode_dokter": "DOK001",
     "hari": "selasa",
     "jam_mulai": "09:00",
@@ -406,102 +248,311 @@ Mengupdate jadwal dokter yang sudah ada.
     "durasi_konsultasi": 45,
     "maksimal_pasien": 15,
     "is_active": true,
-    "keterangan": "Jadwal pagi diperpanjang",
-    "created_at": "2024-01-01T08:00:00.000000Z",
-    "updated_at": "2024-01-01T09:00:00.000000Z"
-  }
+    "keterangan": "Jadwal pagi diperpanjang"
 }
 ```
 
-**Error Response (404):**
+### Validation Rules
+| Field | Rules |
+|-------|-------|
+| `kode_dokter` | sometimes, required, string, max:255 |
+| `hari` | sometimes, required, enum (senin/selasa/rabu/kamis/jumat/sabtu/minggu) |
+| `jam_mulai` | sometimes, required, time format (H:i) |
+| `jam_selesai` | sometimes, required, time format (H:i), after:jam_mulai |
+| `durasi_konsultasi` | nullable, integer, min:1 |
+| `maksimal_pasien` | nullable, integer, min:1 |
+| `is_active` | sometimes, boolean |
+| `keterangan` | nullable, string |
+
+### Success Response (200 OK)
 ```json
 {
-  "meta": {
-    "code": 404,
-    "status": "error",
-    "message": "Jadwal dokter not found"
-  },
-  "data": null
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Jadwal dokter updated successfully"
+    },
+    "data": {
+        "kode_jadwal": "JDWABCD1234",
+        "kode_dokter": "DOK001",
+        "hari": "selasa",
+        "jam_mulai": "09:00",
+        "jam_selesai": "13:00",
+        "durasi_konsultasi": 45,
+        "maksimal_pasien": 15,
+        "is_active": true,
+        "keterangan": "Jadwal pagi diperpanjang",
+        "created_at": "2024-01-01T08:00:00.000000Z",
+        "updated_at": "2024-01-01T09:00:00.000000Z"
+    }
 }
 ```
 
-**Error Response (409) - Schedule Conflict:**
-```json
-{
-  "meta": {
-    "code": 409,
-    "status": "error",
-    "message": "Jadwal dokter pada hari dan jam tersebut sudah ada"
-  },
-  "data": null
-}
-```
+---
 
-### 7. Delete Jadwal Dokter
-Menghapus jadwal dokter.
+## 5. Delete Jadwal Dokter
 
-**Endpoint:** `DELETE /api/jadwal/delete/{kodeJadwal}`
-
-**Path Parameters:**
-- `kodeJadwal`: Kode jadwal yang ingin dihapus
-
-**Example Request:**
+### Endpoint
 ```http
-DELETE /api/jadwal/delete/JDWABCD1234
+DELETE /jadwal/delete/{kode_jadwal}
 ```
 
-**Success Response (200):**
+### Description
+Menghapus jadwal dokter secara permanen.
+
+### Path Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `kode_jadwal` | string | Yes | Kode unik jadwal dokter |
+
+### Example Request
+```http
+DELETE /jadwal/delete/JDWABCD1234
+```
+
+### Success Response (200 OK)
 ```json
 {
-  "meta": {
-    "code": 200,
-    "status": "success",
-    "message": "Jadwal dokter deleted successfully"
-  },
-  "data": null
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Jadwal dokter deleted successfully"
+    },
+    "data": null
 }
 ```
 
-**Error Response (404):**
+### Error Response (404 Not Found)
 ```json
 {
-  "meta": {
-    "code": 404,
-    "status": "error",
-    "message": "Jadwal dokter not found"
-  },
-  "data": null
+    "meta": {
+        "code": 404,
+        "status": "error",
+        "message": "Jadwal dokter not found"
+    },
+    "data": null
 }
 ```
 
-## Error Codes Summary
+---
 
-| Code | Description |
-|------|-------------|
-| 200  | Success |
-| 201  | Created |
-| 400  | Bad Request |
-| 404  | Not Found |
-| 409  | Conflict (Schedule overlap) |
-| 422  | Validation Error |
-| 500  | Internal Server Error |
+## 6. Get Jadwal by Dokter
 
-## Business Logic Notes
+### Endpoint
+```http
+GET /jadwal/dokter/{kode_dokter}
+```
 
-### Schedule Conflict Detection
-- Sistem akan mengecek overlap jadwal untuk dokter yang sama pada hari yang sama
-- Konflik terjadi jika ada jadwal aktif yang bertabrakan pada jam yang sama
-- Validasi conflict dilakukan saat create dan update
+### Description
+Mendapatkan semua jadwal aktif berdasarkan kode dokter.
 
-### Auto-generated Kode Jadwal
-- Kode jadwal otomatis dibuat dengan format: `JDW` + 8 karakter random uppercase
-- Sistem akan memastikan kode jadwal unik sebelum disimpan
+### Path Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `kode_dokter` | string | Yes | Kode unik dokter |
 
-### Time Validation
-- `jam_selesai` harus lebih besar dari `jam_mulai`
-- Format waktu menggunakan format `H:i` (24 jam, contoh: "08:00", "13:30")
+### Example Request
+```http
+GET /jadwal/dokter/DOK001
+```
 
-### Filter dan Pagination
-- Endpoint index mendukung filter berdasarkan `kode_dokter`, `hari`, dan `is_active`
-- Pagination default 10 item per halaman
-- Dapat disesuaikan dengan parameter `per_page`
+### Success Response (200 OK)
+```json
+{
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Jadwal dokter retrieved successfully"
+    },
+    "data": [
+        {
+            "kode_jadwal": "JDWABCD1234",
+            "kode_dokter": "DOK001",
+            "hari": "senin",
+            "jam_mulai": "08:00",
+            "jam_selesai": "12:00",
+            "durasi_konsultasi": 30,
+            "maksimal_pasien": 20,
+            "is_active": true,
+            "keterangan": "Jadwal pagi",
+            "created_at": "2024-01-01T08:00:00.000000Z",
+            "updated_at": "2024-01-01T08:00:00.000000Z"
+        }
+    ]
+}
+```
+
+### Error Response (404 Not Found)
+```json
+{
+    "meta": {
+        "code": 404,
+        "status": "error",
+        "message": "No active schedule found for this doctor"
+    },
+    "data": null
+}
+```
+
+---
+
+## 7. Get Jadwal by Hari
+
+### Endpoint
+```http
+GET /jadwal/hari/{hari}
+```
+
+### Description
+Mendapatkan semua jadwal aktif berdasarkan hari.
+
+### Path Parameters
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `hari` | string | Yes | Hari (senin/selasa/rabu/kamis/jumat/sabtu/minggu) |
+
+### Example Request
+```http
+GET /jadwal/hari/senin
+```
+
+### Success Response (200 OK)
+```json
+{
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Jadwal dokter retrieved successfully"
+    },
+    "data": [
+        {
+            "kode_jadwal": "JDWABCD1234",
+            "kode_dokter": "DOK001",
+            "hari": "senin",
+            "jam_mulai": "08:00",
+            "jam_selesai": "12:00",
+            "durasi_konsultasi": 30,
+            "maksimal_pasien": 20,
+            "is_active": true,
+            "keterangan": "Jadwal pagi",
+            "created_at": "2024-01-01T08:00:00.000000Z",
+            "updated_at": "2024-01-01T08:00:00.000000Z"
+        }
+    ]
+}
+```
+
+### Error Response (400 Bad Request)
+```json
+{
+    "meta": {
+        "code": 400,
+        "status": "error",
+        "message": "Invalid day. Must be one of: senin, selasa, rabu, kamis, jumat, sabtu, minggu"
+    },
+    "data": null
+}
+```
+
+### Error Response (404 Not Found)
+```json
+{
+    "meta": {
+        "code": 404,
+        "status": "error",
+        "message": "No active schedule found for senin"
+    },
+    "data": null
+}
+```
+
+---
+
+## Error Responses
+
+### 401 Unauthorized
+```json
+{
+    "meta": {
+        "code": 401,
+        "status": "error",
+        "message": "Unauthorized"
+    },
+    "data": null
+}
+```
+
+### 403 Forbidden
+```json
+{
+    "meta": {
+        "code": 403,
+        "status": "error",
+        "message": "Insufficient permissions"
+    },
+    "data": null
+}
+```
+
+### 500 Internal Server Error
+```json
+{
+    "meta": {
+        "code": 500,
+        "status": "error",
+        "message": "Failed to retrieve jadwal dokter: Database connection error"
+    },
+    "data": null
+}
+```
+
+---
+
+## Notes
+
+1. **Authentication**: Semua endpoint memerlukan authentication dengan Bearer Token
+2. **Permissions**: Biasanya admin dan dokter yang bersangkutan dapat mengakses endpoint ini
+3. **Validation**: Semua input akan divalidasi sesuai rules yang telah ditentukan
+4. **Schedule Conflict**: Sistem akan mengecek overlap jadwal untuk dokter yang sama pada hari yang sama
+5. **Auto-generated Code**: `kode_jadwal` akan digenerate otomatis dengan format "JDW" + 8 karakter random
+6. **Time Format**: Format waktu menggunakan H:i (24 jam), contoh: "08:00", "13:30"
+7. **Active Status**: Hanya jadwal dengan `is_active = true` yang akan ditampilkan pada endpoint by dokter dan by hari
+
+---
+
+## Sample cURL Commands
+
+### Create Jadwal Dokter
+```bash
+curl -X POST "https://your-api-domain.com/api/jadwal/create" \
+  -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kode_dokter": "DOK001",
+    "hari": "senin",
+    "jam_mulai": "08:00",
+    "jam_selesai": "12:00",
+    "durasi_konsultasi": 30,
+    "maksimal_pasien": 20,
+    "is_active": true,
+    "keterangan": "Jadwal pagi"
+  }'
+```
+
+### Get All Jadwal with Filters
+```bash
+curl -X GET "https://your-api-domain.com/api/jadwal?kode_dokter=DOK001&hari=senin&is_active=true&per_page=10" \
+  -H "Authorization: Bearer your-token"
+```
+
+### Update Jadwal Dokter
+```bash
+curl -X PUT "https://your-api-domain.com/api/jadwal/update/JDWABCD1234" \
+  -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jam_mulai": "09:00",
+    "jam_selesai": "13:00",
+    "durasi_konsultasi": 45
+  }'
+```
