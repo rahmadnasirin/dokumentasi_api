@@ -430,7 +430,7 @@ PUT /users/USR-2501151030001/status
 
 ### Endpoint
 ```http
-GET /users/role/{role}
+GET /users/roles/{role}
 ```
 
 ### Description
@@ -444,11 +444,11 @@ Mendapatkan semua user yang memiliki role tertentu.
 
 ### Example Request name role
 ```http 
-GET /users/role/dokter
+GET /users/roles/dokter
 ```
 ### Example Request id role
 ```http
-GET /users/role/1
+GET /users/roles/1
 ```
 
 ### Success Response (200 OK)
@@ -553,7 +553,7 @@ PUT /users/USR-2501151030001/change-password
 
 ### Endpoint
 ```http
-GET /users/roles/available
+GET /users/roles
 ```
 
 ### Description
@@ -561,7 +561,7 @@ Mendapatkan daftar semua role yang tersedia untuk dropdown/select options.
 
 ### Example Request
 ```http
-GET /users/roles/available
+GET /users/roles
 ```
 
 ### Success Response (200 OK)
