@@ -93,7 +93,7 @@ GET /dokter?per_page=15&search=john&is_active=true&pendidikan=kedokteran
 
 ### Endpoint
 ```http
-POST /dokter
+POST /dokter/create
 ```
 
 ### Description
@@ -381,7 +381,7 @@ DELETE /dokter/DOK12345678
 
 ### Endpoint
 ```http
-PATCH /dokter/{kode_dokter}/toggle-status
+PATCH /dokter/{kodeDokter}/toggle-status
 ```
 
 ### Description
@@ -471,7 +471,7 @@ PATCH /dokter/DOK12345678/toggle-status
 
 ### Create Dokter
 ```bash
-curl -X POST "https://your-api-domain.com/api/dokter" \
+curl -X POST "https://your-api-domain.com/api/dokter/create" \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{
