@@ -252,7 +252,7 @@ GET /dokter/DOK12345678
 
 ### Endpoint
 ```http
-PUT /dokter/{kode_dokter}
+PUT /dokter/update/{kode_dokter}
 ```
 
 ### Description
@@ -335,7 +335,7 @@ Mengupdate data dokter dan user terkait. Semua field bersifat optional.
 
 ### Endpoint
 ```http
-DELETE /dokter/{kode_dokter}
+DELETE /dokter/delete/{kode_dokter}
 ```
 
 ### Description
