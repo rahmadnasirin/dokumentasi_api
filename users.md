@@ -440,10 +440,15 @@ Mendapatkan semua user yang memiliki role tertentu.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `role` | string | Yes | Nama role (contoh: dokter, admin, customer) |
+| `id` | int | Yes | Id role (contoh: 1, 2, 3) |
 
-### Example Request
-```http
+### Example Request name role
+```http 
 GET /users/role/dokter
+```
+### Example Request id role
+```http
+GET /users/role/1
 ```
 
 ### Success Response (200 OK)
