@@ -13,7 +13,79 @@ Authorization: Bearer {your-token}
 
 ---
 
-## 1. Get All Jadwal Dokter
+## 1. Get All Dokter
+
+### Endpoint
+```http
+GET /jadwal/dokter
+```
+
+### Description
+Mendapatkan daftar semua dokter yang tersedia untuk dipilih saat membuat jadwal.
+
+### Example Request
+```http
+GET /jadwal/dokter
+```
+
+### Success Response (200 OK)
+```json
+{
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Data dokter retrieved successfully"
+    },
+    "data": [
+        {
+            "id": 1,
+            "kode_dokter": "DOK001",
+            "nama_dokter": "Dr. John Doe",
+            "spesialisasi": "Kardiologi",
+            "no_telepon": "08123456789",
+            "email": "john.doe@hospital.com",
+            "alamat": "Jl. Kesehatan No. 123",
+            "pengalaman_tahun": 10,
+            "pendidikan": "S2 Kedokteran Universitas Indonesia",
+            "is_active": true,
+            "keterangan": "Spesialis jantung berpengalaman",
+            "created_at": "2024-01-01T08:00:00.000000Z",
+            "updated_at": "2024-01-01T08:00:00.000000Z"
+        },
+        {
+            "id": 2,
+            "kode_dokter": "DOK002",
+            "nama_dokter": "Dr. Jane Smith",
+            "spesialisasi": "Neurologi",
+            "no_telepon": "08123456790",
+            "email": "jane.smith@hospital.com",
+            "alamat": "Jl. Medis No. 456",
+            "pengalaman_tahun": 8,
+            "pendidikan": "S2 Neurologi Universitas Gadjah Mada",
+            "is_active": true,
+            "keterangan": "Spesialis saraf",
+            "created_at": "2024-01-01T08:00:00.000000Z",
+            "updated_at": "2024-01-01T08:00:00.000000Z"
+        }
+    ]
+}
+```
+
+### Error Response (500 Internal Server Error)
+```json
+{
+    "meta": {
+        "code": 500,
+        "status": "error",
+        "message": "Failed to retrieve data dokter: Database connection error"
+    },
+    "data": null
+}
+```
+
+---
+
+## 2. Get All Jadwal Dokter
 
 ### Endpoint
 ```http
@@ -75,7 +147,7 @@ GET /jadwal?kode_dokter=DOK001&hari=senin&is_active=true&per_page=15
 
 ---
 
-## 2. Create New Jadwal Dokter
+## 3. Create New Jadwal Dokter
 
 ### Endpoint
 ```http
@@ -83,7 +155,7 @@ POST /jadwal/create
 ```
 
 ### Description
-Membuat jadwal dokter baru.
+Membuat jadwal dokter baru. Pastikan `kode_dokter` yang digunakan sudah tersedia dalam sistem (gunakan endpoint GET /dokter untuk mendapatkan list dokter).
 
 ### Request Body
 ```json
@@ -165,7 +237,7 @@ Membuat jadwal dokter baru.
 
 ---
 
-## 3. Get Single Jadwal Dokter
+## 4. Get Single Jadwal Dokter
 
 ### Endpoint
 ```http
@@ -223,7 +295,7 @@ GET /jadwal/JDWABCD1234
 
 ---
 
-## 4. Update Jadwal Dokter
+## 5. Update Jadwal Dokter
 
 ### Endpoint
 ```http
@@ -290,7 +362,7 @@ Mengupdate jadwal dokter yang sudah ada. Semua field bersifat optional.
 
 ---
 
-## 5. Delete Jadwal Dokter
+## 6. Delete Jadwal Dokter
 
 ### Endpoint
 ```http
@@ -336,7 +408,7 @@ DELETE /jadwal/delete/JDWABCD1234
 
 ---
 
-## 6. Get Jadwal by Dokter
+## 7. Get Jadwal by Dokter
 
 ### Endpoint
 ```http
@@ -396,7 +468,7 @@ GET /jadwal/dokter/DOK001
 
 ---
 
-## 7. Get Jadwal by Hari
+## 8. Get Jadwal by Hari
 
 ### Endpoint
 ```http
@@ -517,10 +589,17 @@ GET /jadwal/hari/senin
 5. **Auto-generated Code**: `kode_jadwal` akan digenerate otomatis dengan format "JDW" + 8 karakter random
 6. **Time Format**: Format waktu menggunakan H:i (24 jam), contoh: "08:00", "13:30"
 7. **Active Status**: Hanya jadwal dengan `is_active = true` yang akan ditampilkan pada endpoint by dokter dan by hari
+8. **Dokter Reference**: Sebelum membuat jadwal, gunakan endpoint GET /dokter untuk mendapatkan list dokter yang tersedia
 
 ---
 
 ## Sample cURL Commands
+
+### Get All Dokter
+```bash
+curl -X GET "https://your-api-domain.com/api/dokter" \
+  -H "Authorization: Bearer your-token"
+```
 
 ### Create Jadwal Dokter
 ```bash
