@@ -2,19 +2,20 @@
 
 ## Base URL
 ```
-/api/treatment
+/api/treatments
 ```
 
 ## Endpoints Overview
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/treatment` | Get all treatments with pagination and filters |
-| POST | `/treatment/create` | Create new treatment |
-| GET | `/treatment/{kodeTreatment}` | Get specific treatment by code |
-| PUT | `/treatment/update/{kodeTreatment}` | Update treatment |
-| DELETE | `/treatment/delete/{kodeTreatment}` | Delete treatment |
-| PATCH | `/treatment/status/{kodeTreatment}` | Toggle treatment status |
+| GET | `/treatments` | Get all treatments with pagination and filters |
+| GET | `/treatments/kategori` | Get all treatment categories |
+| POST | `/treatments/create` | Create new treatment |
+| GET | `/treatments/{kodeTreatment}` | Get specific treatment by code |
+| PUT | `/treatments/update/{kodeTreatment}` | Update treatment |
+| DELETE | `/treatments/delete/{kodeTreatment}` | Delete treatment |
+| PATCH | `/treatments/status/{kodeTreatment}` | Toggle treatment status |
 
 ---
 
@@ -22,7 +23,7 @@
 
 ### Request
 ```http
-GET /api/treatment
+GET /api/treatments
 ```
 
 ### Query Parameters
@@ -66,7 +67,7 @@ GET /api/treatment
                 }
             }
         ],
-        "first_page_url": "http://localhost/api/treatment?page=1",
+        "first_page_url": "http://localhost/api/treatments?page=1",
         "from": 1,
         "last_page": 1,
         "per_page": 10,
@@ -89,11 +90,63 @@ GET /api/treatment
 
 ---
 
-## 2. Create Treatment
+## 2. Get Treatment Categories
 
 ### Request
 ```http
-POST /api/treatment/create
+GET /api/treatments/kategori
+```
+
+### Response Success (200)
+```json
+{
+    "meta": {
+        "code": 200,
+        "status": "success",
+        "message": "Treatment categories retrieved successfully"
+    },
+    "data": [
+        {
+            "kode_kategori_perawatan": "KP-240907123456",
+            "nama": "Konsultasi",
+            "tipe": "medis",
+            "deskripsi": "Kategori untuk konsultasi medis",
+            "is_active": true,
+            "created_at": "2024-09-07T12:34:56.000000Z",
+            "updated_at": "2024-09-07T12:34:56.000000Z"
+        },
+        {
+            "kode_kategori_perawatan": "KP-240907123457",
+            "nama": "Operasi",
+            "tipe": "bedah",
+            "deskripsi": "Kategori untuk tindakan operasi",
+            "is_active": true,
+            "created_at": "2024-09-07T12:34:56.000000Z",
+            "updated_at": "2024-09-07T12:34:56.000000Z"
+        }
+    ]
+}
+```
+
+### Response Error (500)
+```json
+{
+    "meta": {
+        "code": 500,
+        "status": "error",
+        "message": "Failed to retrieve treatment categories: [error message]"
+    },
+    "data": null
+}
+```
+
+---
+
+## 3. Create Treatment
+
+### Request
+```http
+POST /api/treatments/create
 Content-Type: multipart/form-data
 ```
 
@@ -167,11 +220,11 @@ foto_treatment: [file]
 
 ---
 
-## 3. Get Specific Treatment
+## 4. Get Specific Treatment
 
 ### Request
 ```http
-GET /api/treatment/{kodeTreatment}
+GET /api/treatments/{kodeTreatment}
 ```
 
 ### Path Parameters
@@ -223,11 +276,11 @@ GET /api/treatment/{kodeTreatment}
 
 ---
 
-## 4. Update Treatment
+## 5. Update Treatment
 
 ### Request
 ```http
-PUT /api/treatment/update/{kodeTreatment}
+PUT /api/treatments/update/{kodeTreatment}
 Content-Type: multipart/form-data
 ```
 
@@ -288,11 +341,11 @@ foto_treatment: [file]
 
 ---
 
-## 5. Delete Treatment
+## 6. Delete Treatment
 
 ### Request
 ```http
-DELETE /api/treatment/delete/{kodeTreatment}
+DELETE /api/treatments/delete/{kodeTreatment}
 ```
 
 ### Path Parameters
@@ -314,11 +367,11 @@ DELETE /api/treatment/delete/{kodeTreatment}
 
 ---
 
-## 6. Toggle Treatment Status
+## 7. Toggle Treatment Status
 
 ### Request
 ```http
-PATCH /api/treatment/status/{kodeTreatment}
+PATCH /api/treatments/status/{kodeTreatment}
 ```
 
 ### Path Parameters
@@ -385,9 +438,14 @@ PATCH /api/treatment/status/{kodeTreatment}
 
 ## Sample Usage
 
+### Get Treatment Categories
+```bash
+curl "http://localhost/api/treatments/kategori"
+```
+
 ### Create Treatment with Image
 ```bash
-curl -X POST http://localhost/api/treatment/create \
+curl -X POST http://localhost/api/treatments/create \
   -H "Content-Type: multipart/form-data" \
   -F "kode_kategori_perawatan=KP-240907123456" \
   -F "nama=Konsultasi Jantung" \
@@ -400,22 +458,22 @@ curl -X POST http://localhost/api/treatment/create \
 
 ### Get Treatments by Category
 ```bash
-curl "http://localhost/api/treatment?kode_kategori_perawatan=KP-240907123456"
+curl "http://localhost/api/treatments?kode_kategori_perawatan=KP-240907123456"
 ```
 
 ### Filter by Price Range
 ```bash
-curl "http://localhost/api/treatment?harga_min=100000&harga_max=500000"
+curl "http://localhost/api/treatments?harga_min=100000&harga_max=500000"
 ```
 
 ### Search Treatments
 ```bash
-curl "http://localhost/api/treatment?search=konsultasi&is_active=true"
+curl "http://localhost/api/treatments?search=konsultasi&is_active=true"
 ```
 
 ### Update Treatment Image
 ```bash
-curl -X PUT http://localhost/api/treatment/update/TR-240907123456 \
+curl -X PUT http://localhost/api/treatments/update/TR-240907123456 \
   -H "Content-Type: multipart/form-data" \
   -F "foto_treatment=@/path/to/new_image.jpg"
 ```
@@ -456,17 +514,18 @@ class Treatment extends Model
 Add these routes to `routes/api.php`:
 ```php
 // Treatment routes
-Route::get('/treatment', [TreatmentController::class, 'index']);
-Route::post('/treatment/create', [TreatmentController::class, 'store']);
-Route::get('/treatment/{kodeTreatment}', [TreatmentController::class, 'show']);
-Route::put('/treatment/update/{kodeTreatment}', [TreatmentController::class, 'update']);
-Route::delete('/treatment/delete/{kodeTreatment}', [TreatmentController::class, 'destroy']);
-Route::patch('/treatment/status/{kodeTreatment}', [TreatmentController::class, 'updateStatus']);
+Route::get('/treatments', [TreatmentsController::class, 'index']);
+Route::get('/treatments/kategori', [TreatmentsController::class, 'getKategori']);
+Route::post('/treatments/create', [TreatmentsController::class, 'store']);
+Route::get('/treatments/{kodeTreatment}', [TreatmentsController::class, 'show']);
+Route::put('/treatments/update/{kodeTreatment}', [TreatmentsController::class, 'update']);
+Route::delete('/treatments/delete/{kodeTreatment}', [TreatmentsController::class, 'destroy']);
+Route::patch('/treatments/status/{kodeTreatment}', [TreatmentsController::class, 'updateStatus']);
 ```
 
 Don't forget to import the controller:
 ```php
-use App\Http\Controllers\Api\TreatmentController;
+use App\Http\Controllers\Api\TreatmentsController;
 ```
 
 ---
