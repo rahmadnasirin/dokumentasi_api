@@ -13,7 +13,8 @@
 | GET | `/api/subjects` | Ambil semua mata pelajaran |
 | POST | `/api/subjects` | Tambah mata pelajaran baru |
 | GET | `/api/subjects/{kode_subject}` | Detail satu mata pelajaran |
-| PUT | `/api/subjects/{kode_subject}` | Update mata pelajaran |
+| PUT | `/api/subjects/{kode_subject}` | Update semua field |
+| PATCH | `/api/subjects/{kode_subject}/update` | Update sebagian field |
 | DELETE | `/api/subjects/{kode_subject}` | Hapus mata pelajaran |
 
 > **Catatan:** Untuk dropdown pilihan kategori di frontend, gunakan endpoint
@@ -411,6 +412,113 @@ Authorization: Bearer {token}
 {
     "statusCode": 500,
     "message": "Mata pelajaran gagal dihapus",
+    "data": null
+}
+```
+
+
+---
+
+## 6. PATCH /api/subjects/{kode_subject}/update
+
+Update **sebagian field saja** (partial update). Cocok untuk perubahan kecil seperti toggle aktif/nonaktif, ganti warna, atau pindah kategori tanpa perlu mengirim semua field. Minimal harus ada 1 field yang dikirim.
+
+**Kapan pakai `PATCH` vs `PUT`?**
+
+| Skenario | Gunakan |
+|----------|---------|
+| Nonaktifkan/aktifkan mapel | `PATCH` |
+| Ganti warna atau ikon saja | `PATCH` |
+| Pindah kategori saja | `PATCH` |
+| Update semua field sekaligus | `PUT` |
+
+**Headers**
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**Parameter URL**
+
+| Parameter | Tipe | Keterangan |
+|-----------|------|------------|
+| `kode_subject` | string | Kode mata pelajaran yang ingin diupdate sebagian |
+
+**Body Request** *(minimal 1 field)*
+
+| Field | Tipe | Keterangan |
+|-------|------|------------|
+| `kode_kategori` | string / null | `null` = jadikan mapel universal |
+| `name` | string, max:100 | Jika diisi, slug di-regenerate otomatis |
+| `slug` | string, max:100 | |
+| `icon` | string / null | Nama icon |
+| `color` | string / null | Format hex: `#RRGGBB` |
+| `is_active` | boolean | `true` = aktif, `false` = nonaktif |
+
+**Contoh Request — nonaktifkan mapel**
+```json
+{
+    "is_active": false
+}
+```
+
+**Contoh Request — ganti warna dan ikon saja**
+```json
+{
+    "color": "#EF4444",
+    "icon": "flask"
+}
+```
+
+**Contoh Request — pindah kategori**
+```json
+{
+    "kode_kategori": "CAT-003-250515090000"
+}
+```
+
+**Response 200 — Berhasil Diperbarui Sebagian**
+```json
+{
+    "statusCode": 200,
+    "message": "Mata pelajaran berhasil diperbarui sebagian",
+    "data": {
+        "kode_subject": "SUB-005-250515090100",
+        "kode_kategori": "CAT-001-250515090000",
+        "name": "Matematika Dasar",
+        "slug": "matematika-dasar",
+        "icon": "calculator",
+        "color": "#EF4444",
+        "is_active": false,
+        "created_at": "2025-05-15T09:01:00.000000Z",
+        "updated_at": "2025-05-15T16:00:00.000000Z",
+        "category": {
+            "kode_kategori": "CAT-001-250515090000",
+            "name": "Tes Kemampuan Dasar",
+            "slug": "tkd",
+            "description": "TKD — dipakai di Mandiri SAINTEK & SOSHUM",
+            "seq": 1
+        }
+    }
+}
+```
+
+**Response 422 — Tidak Ada Data Dikirim**
+```json
+{
+    "statusCode": 422,
+    "message": "Tidak ada data yang dikirim",
+    "errors": {
+        "field": ["Minimal satu field harus diisi untuk patch update"]
+    }
+}
+```
+
+**Response 404 — Tidak Ditemukan**
+```json
+{
+    "statusCode": 404,
+    "message": "Mata pelajaran tidak ditemukan",
     "data": null
 }
 ```
