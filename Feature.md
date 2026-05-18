@@ -27,16 +27,16 @@ questions         → docs: api-questions.md
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/api/exam-packages` | Ambil semua paket |
-| POST | `/api/exam-packages` | Buat paket baru |
-| GET | `/api/exam-packages/{kode_paket}` | Detail paket + daftar mapel |
-| PUT | `/api/exam-packages/{kode_paket}` | Update semua field |
-| PATCH | `/api/exam-packages/{kode_paket}/update` | Update sebagian field |
-| DELETE | `/api/exam-packages/{kode_paket}` | Hapus paket |
+| GET | `/api/feature` | Ambil semua paket |
+| POST | `/api/feature` | Buat paket baru |
+| GET | `/api/feature/{kode_feature}` | Detail paket + daftar mapel |
+| PUT | `/api/feature/{kode_feature}` | Update semua field |
+| PATCH | `/api/feature/{kode_feature}/update` | Update sebagian field |
+| DELETE | `/api/feature/{kode_feature}` | Hapus paket |
 
 ---
 
-## 1. GET /api/exam-packages
+## 1. GET /api/feature
 
 Ambil semua paket ujian. Bisa difilter via query parameter.
 
@@ -50,9 +50,9 @@ Ambil semua paket ujian. Bisa difilter via query parameter.
 
 **Contoh Request**
 ```
-GET /api/exam-packages
-GET /api/exam-packages?type=universal&is_active=1
-GET /api/exam-packages?type=mandiri&track=saintek
+GET /api/feature
+GET /api/feature?type=universal&is_active=1
+GET /api/feature?type=mandiri&track=saintek
 ```
 
 **Response 200 — Berhasil**
@@ -62,7 +62,7 @@ GET /api/exam-packages?type=mandiri&track=saintek
     "message": "Daftar paket ujian berhasil diambil",
     "data": [
         {
-            "kode_paket": "PKG-001-250515143022",
+            "kode_feature": "PKG-001-250515143022",
             "name": "Latihan Matematika SMA",
             "description": null,
             "thumbnail": null,
@@ -85,9 +85,9 @@ GET /api/exam-packages?type=mandiri&track=saintek
 
 ---
 
-## 2. POST /api/exam-packages
+## 2. POST /api/feature
 
-Buat paket ujian baru. `kode_paket` di-generate otomatis oleh server dengan format `PKG-{sequential}-{timestamp}`.
+Buat paket ujian baru. `kode_feature` di-generate otomatis oleh server dengan format `PKG-{sequential}-{timestamp}`.
 
 **Body Request**
 
@@ -139,7 +139,7 @@ Buat paket ujian baru. `kode_paket` di-generate otomatis oleh server dengan form
     "statusCode": 201,
     "message": "Paket ujian berhasil ditambahkan",
     "data": {
-        "kode_paket": "PKG-001-250515143022",
+        "kode_feature": "PKG-001-250515143022",
         "name": "TO Mandiri Saintek Part 1",
         "type": "mandiri",
         "track": "saintek",
@@ -167,7 +167,7 @@ Buat paket ujian baru. `kode_paket` di-generate otomatis oleh server dengan form
 
 ---
 
-## 3. GET /api/exam-packages/{kode_paket}
+## 3. GET /api/feature/{kode_feature}
 
 Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutkan by `seq`. Termasuk slot istirahat (`is_break: true`).
 
@@ -175,7 +175,7 @@ Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutka
 
 | Parameter | Keterangan |
 |-----------|------------|
-| `kode_paket` | Kode paket, contoh: `PKG-001-250515143022` |
+| `kode_feature` | Kode paket, contoh: `PKG-001-250515143022` |
 
 **Response 200 — Berhasil**
 ```json
@@ -183,7 +183,7 @@ Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutka
     "statusCode": 200,
     "message": "Detail paket ujian berhasil diambil",
     "data": {
-        "kode_paket": "PKG-001-250515143022",
+        "kode_feature": "PKG-001-250515143022",
         "name": "TO Mandiri Saintek Part 1",
         "type": "mandiri",
         "track": "saintek",
@@ -193,7 +193,7 @@ Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutka
         "is_active": true,
         "package_subjects": [
             {
-                "kode_paket_subject": "PSUB-001-xxx",
+                "kode_feature_subject": "PSUB-001-xxx",
                 "kode_subject": "SUB-005-xxx",
                 "is_break": false,
                 "total_questions": 15,
@@ -209,7 +209,7 @@ Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutka
                 }
             },
             {
-                "kode_paket_subject": "PSUB-002-xxx",
+                "kode_feature_subject": "PSUB-002-xxx",
                 "kode_subject": null,
                 "is_break": true,
                 "duration_minutes": 1,
@@ -218,7 +218,7 @@ Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutka
                 "subject": null
             },
             {
-                "kode_paket_subject": "PSUB-003-xxx",
+                "kode_feature_subject": "PSUB-003-xxx",
                 "kode_subject": "SUB-009-xxx",
                 "is_break": false,
                 "total_questions": 15,
@@ -247,7 +247,7 @@ Detail paket beserta semua slot mapel (`package_subjects`) di dalamnya, diurutka
 
 ---
 
-## 4. PUT /api/exam-packages/{kode_paket}
+## 4. PUT /api/feature/{kode_feature}
 
 Update semua field paket ujian. Semua field bersifat `sometimes` — kirim field yang ingin diubah.
 
@@ -264,7 +264,7 @@ Update semua field paket ujian. Semua field bersifat `sometimes` — kirim field
 
 ---
 
-## 5. PATCH /api/exam-packages/{kode_paket}/update
+## 5. PATCH /api/feature/{kode_feature}/update
 
 Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk perubahan kecil tanpa perlu kirim semua data.
 
@@ -301,7 +301,7 @@ Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk perub
 
 ---
 
-## 6. DELETE /api/exam-packages/{kode_paket}
+## 6. DELETE /api/feature/{kode_feature}
 
 Hapus paket ujian beserta semua `package_subjects` di dalamnya (cascade). **Gagal** jika sudah ada sesi ujian yang terikat — artinya sudah ada user yang pernah mengerjakan paket ini.
 
