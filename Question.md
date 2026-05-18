@@ -52,6 +52,83 @@ saat ujian mulai:
 
 ---
 
+## Logika Form Input Soal di Frontend
+
+Sebelum memanggil `POST /api/questions`, frontend perlu menyiapkan form dinamis berdasarkan `type` yang dipilih. Berikut alur yang direkomendasikan:
+
+**Urutan load data sebelum form dibuka:**
+```
+1. GET /api/subjects              → populate dropdown "Pilih Mapel"
+2. GET /api/questions/passages    → populate dropdown "Pakai bacaan yang sudah ada"
+   (filter by kode_subject setelah mapel dipilih)
+```
+
+**Struktur form berdasarkan type:**
+```
+[Pilih Mapel]          ← dropdown hasil GET /api/subjects
+
+[Teks Bacaan]          ← pilih salah satu:
+  ○ Tidak ada (soal mandiri)
+  ○ Pakai yang sudah ada  ← dropdown hasil GET /api/questions/passages
+  ○ Buat baru             ← muncul rich text editor bacaan
+
+[Teks Soal]            ← rich text editor (support HTML, gambar, LaTeX)
+
+[Jenis Soal]
+  ● Pilihan Ganda (type=1)   ← default
+  ○ Esai (type=2)
+
+─── jika type = 1 (Pilihan Ganda) ───────────────────────────
+[Pilihan Jawaban]
+  A: [rich text editor]   ← option_number: 1
+  B: [rich text editor]   ← option_number: 2
+  C: [rich text editor]   ← option_number: 3
+  D: [rich text editor]   ← option_number: 4
+  E: [rich text editor]   ← option_number: 5
+  [+ Tambah Pilihan]      ← bisa sampai 9 pilihan (F-I)
+
+[Jawaban Benar]         ← radio button: A / B / C / D / E
+                          frontend simpan option_number yang dipilih
+                          contoh: pilih C → kirim correct_answer: 3
+─────────────────────────────────────────────────────────────
+
+─── jika type = 2 (Esai) ────────────────────────────────────
+[Jawaban Benar]         ← textarea biasa
+                          dikirim sebagai correct_answer_essay
+─────────────────────────────────────────────────────────────
+
+[Tingkat Kesulitan]     ← select: Mudah / Sedang / Sulit
+[Bab/Chapter]           ← input text
+[Tahun Soal]            ← input number
+[Pembahasan]            ← rich text editor (isi jawaban + penjelasan)
+[Lampiran File]         ← upload gambar → simpan path ke url_file
+[Lampiran Video]        ← input URL → url_video
+[Lampiran PDF]          ← input URL → url_pdf
+```
+
+**Validasi frontend sebelum submit:**
+```javascript
+if (type == 1) {
+    // Pastikan minimal 2 pilihan terisi
+    // Pastikan jawaban benar (correct_answer) sudah dipilih
+    // Pastikan correct_answer sesuai salah satu option_number
+    // Jangan kirim correct_answer_essay
+} else {
+    // Kosongkan array options sebelum kirim (atau jangan kirim sama sekali)
+    // Kosongkan correct_answer
+}
+
+// Validasi passage — tidak boleh kirim keduanya sekaligus
+if (kode_passage && passage) {
+    // Tampilkan error: pilih salah satu
+}
+```
+
+> Backend juga melakukan validasi yang sama — ini hanya untuk UX agar user
+> mendapat feedback lebih cepat tanpa menunggu response API.
+
+---
+
 ## 1. GET /api/questions
 
 Ambil bank soal dengan pagination. Default 20 soal per halaman. Sudah include relasi `subject`, `passage`, dan `options`.
@@ -195,6 +272,15 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
 | `passage.title` | string | ❌ | Judul bacaan |
 | `passage.seq` | integer | ❌ | Urutan bacaan. Default `1` |
 
+> **Catatan penting perbedaan type=1 dan type=2:**
+>
+> | | type=1 (Pilihan Ganda) | type=2 (Esai) |
+> |---|---|---|
+> | `options` | **Wajib** (min 2, max 9) | Tidak dikirim |
+> | `correct_answer` | **Wajib** (1-9, sesuai option_number) | Tidak dikirim |
+> | `correct_answer_essay` | Tidak dikirim | Opsional |
+> | Form di frontend | Muncul input pilihan A-E + radio jawaban benar | Muncul textarea jawaban benar |
+
 **Skenario 1 — Soal mandiri tanpa bacaan**
 ```json
 {
@@ -259,6 +345,24 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
     ]
 }
 ```
+
+**Skenario 4 — Soal esai (type=2)**
+```json
+{
+    "kode_subject": "SUB-001-xxx",
+    "question": "<p>Jelaskan pengertian dan contoh penerapan teorema Pythagoras dalam kehidupan sehari-hari!</p>",
+    "type": 2,
+    "correct_answer_essay": "Teorema Pythagoras menyatakan bahwa pada segitiga siku-siku, kuadrat sisi miring sama dengan jumlah kuadrat dua sisi lainnya (a² + b² = c²). Contoh penerapan: menghitung jarak diagonal layar TV, menghitung tinggi tiang listrik, dll.",
+    "difficulty": "sedang",
+    "tahun": 2025,
+    "chapter": "Geometri",
+    "discussion": "<p>Teorema Pythagoras: <strong>a² + b² = c²</strong>. Contoh: layar TV 32 inci berarti diagonal 32 inci...</p>"
+}
+```
+
+> Soal esai **tidak mengirim `options`** dan **tidak mengirim `correct_answer`**.
+> `correct_answer_essay` bersifat opsional — bisa diisi teks panduan jawaban untuk admin,
+> atau dikosongkan jika koreksi dilakukan manual.
 
 **Response 201 — Berhasil Ditambahkan**
 ```json
@@ -368,6 +472,43 @@ Detail soal **beserta** `correct_answer` dan `discussion`. Khusus admin, atau di
 ## 6. PUT /api/questions/{kode_soal}
 
 Update soal. Semua field bersifat `sometimes`. Jika `options` dikirim → **semua pilihan lama dihapus** dan diganti dengan pilihan baru yang dikirim.
+
+> **Perhatian saat update `type`:**
+> Jika mengubah dari `type=1` ke `type=2` (atau sebaliknya), pastikan
+> menyesuaikan field yang dikirim — hapus `options` + `correct_answer` jika
+> ganti ke esai, atau kirim `options` + `correct_answer` baru jika ganti ke pilihan ganda.
+
+**Contoh — update soal pilihan ganda beserta replace semua pilihan**
+```json
+{
+    "question": "<p>Nilai dari 2³ + 3² adalah...</p>",
+    "correct_answer": 2,
+    "discussion": "<p>2³=8, 3²=9, maka 8+9=<strong>17</strong>.</p>",
+    "options": [
+        { "option_number": 1, "content": "<p>15</p>" },
+        { "option_number": 2, "content": "<p>17</p>" },
+        { "option_number": 3, "content": "<p>18</p>" },
+        { "option_number": 4, "content": "<p>19</p>" },
+        { "option_number": 5, "content": "<p>20</p>" }
+    ]
+}
+```
+
+**Contoh — update teks soal saja (tanpa ubah pilihan jawaban)**
+```json
+{
+    "question": "<p>Hasil dari 2³ + 3² adalah... (diperbarui)</p>"
+}
+```
+
+**Response 200 — Berhasil Diperbarui**
+```json
+{
+    "statusCode": 200,
+    "message": "Soal berhasil diperbarui",
+    "data": { "..." }
+}
+```
 
 ---
 
