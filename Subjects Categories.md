@@ -13,7 +13,8 @@
 | GET | `/api/subjects-categories` | Ambil semua kategori |
 | POST | `/api/subjects-categories` | Tambah kategori baru |
 | GET | `/api/subjects-categories/{kode_kategori}` | Detail satu kategori |
-| PUT | `/api/subjects-categories/{kode_kategori}` | Update kategori |
+| PUT | `/api/subjects-categories/{kode_kategori}` | Update semua field |
+| PATCH | `/api/subjects-categories/{kode_kategori}/update` | Update sebagian field |
 | DELETE | `/api/subjects-categories/{kode_kategori}` | Hapus kategori |
 
 ---
@@ -341,6 +342,93 @@ Authorization: Bearer {token}
 {
     "statusCode": 500,
     "message": "Kategori mapel gagal dihapus",
+    "data": null
+}
+```
+
+
+---
+
+## 6. PATCH /api/subjects-categories/{kode_kategori}/update
+
+Update **sebagian field saja** (partial update). Berbeda dengan `PUT` yang mengupdate keseluruhan data, `PATCH` hanya mengubah field yang dikirim — field lain tidak tersentuh sama sekali. Minimal harus ada 1 field yang dikirim.
+
+**Kapan pakai `PATCH` vs `PUT`?**
+
+| Skenario | Gunakan |
+|----------|---------|
+| Ubah urutan tampil saja | `PATCH` |
+| Ubah deskripsi saja | `PATCH` |
+| Update semua field sekaligus | `PUT` |
+
+**Headers**
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**Parameter URL**
+
+| Parameter | Tipe | Keterangan |
+|-----------|------|------------|
+| `kode_kategori` | string | Kode kategori yang ingin diupdate sebagian |
+
+**Body Request** *(minimal 1 field)*
+
+| Field | Tipe | Keterangan |
+|-------|------|------------|
+| `name` | string, max:100 | Jika diisi, slug di-regenerate otomatis |
+| `slug` | string, max:100, unique | Jika kosong saat `name` diubah, slug otomatis di-regenerate |
+| `description` | string / null | Deskripsi kategori |
+| `seq` | integer, min:1 | Urutan tampil |
+
+**Contoh Request — hanya ubah urutan**
+```json
+{
+    "seq": 3
+}
+```
+
+**Contoh Request — hanya ubah deskripsi**
+```json
+{
+    "description": "Tes Kemampuan Dasar untuk jalur SAINTEK dan SOSHUM"
+}
+```
+
+**Response 200 — Berhasil Diperbarui Sebagian**
+```json
+{
+    "statusCode": 200,
+    "message": "Kategori mapel berhasil diperbarui sebagian",
+    "data": {
+        "kode_kategori": "CAT-001-250515090000",
+        "name": "Tes Kemampuan Dasar",
+        "slug": "tkd",
+        "description": "Tes Kemampuan Dasar untuk jalur SAINTEK dan SOSHUM",
+        "seq": 3,
+        "created_at": "2025-05-15T09:00:00.000000Z",
+        "updated_at": "2025-05-15T16:00:00.000000Z"
+    }
+}
+```
+
+**Response 422 — Tidak Ada Data Dikirim**
+```json
+{
+    "statusCode": 422,
+    "message": "Tidak ada data yang dikirim",
+    "errors": {
+        "field": ["Minimal satu field harus diisi untuk patch update"]
+    }
+}
+```
+
+**Response 404 — Tidak Ditemukan**
+```json
+{
+    "statusCode": 404,
+    "message": "Kategori tidak ditemukan",
     "data": null
 }
 ```
