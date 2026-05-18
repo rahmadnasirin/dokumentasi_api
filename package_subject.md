@@ -1,4 +1,4 @@
-# API Dokumentasi — Mapel dalam Paket (Package Subjects)
+# API Dokumentasi — Slot Kategori dalam Paket (Package Subjects)
 
 > **Base URL:** `/api`
 > **Auth:** Bearer Token (Laravel Sanctum)
@@ -8,11 +8,11 @@
 
 ## Tentang Modul Ini
 
-`package_subjects` adalah **slot konfigurasi** yang menghubungkan paket ujian dengan mata pelajaran. Setiap slot menyimpan konfigurasi ujian per mapel: jumlah soal, durasi, jeda istirahat, dan urutan pengerjaan.
+`package_subjects` adalah **slot konfigurasi** yang menghubungkan paket ujian dengan kategori mata pelajaran. Setiap slot menyimpan konfigurasi ujian per kategori: jumlah soal, durasi, jeda istirahat, dan urutan pengerjaan.
 
 Satu slot bisa berupa:
-- **Slot mapel** — sub-ujian normal yang berisi soal (`is_break: false`)
-- **Slot istirahat** — jeda antar mapel, tidak berisi soal (`is_break: true`)
+- **Slot kategori** — sub-ujian normal yang berisi soal (`is_break: false`)
+- **Slot istirahat** — jeda antar sesi, tidak berisi soal (`is_break: true`)
 
 **Posisi dalam alur:**
 ```
@@ -25,7 +25,7 @@ questions         ← soal di bank soal otomatis masuk pool
 ```
 
 > **Nested resource** — semua endpoint di modul ini selalu dalam konteks paket tertentu.
-> URL selalu diawali `/api/exam-packages/{kode_paket}/package-subjects`.
+> URL selalu diawali `/api/feature/{kode_feature}/package-subjects`.
 
 ---
 
@@ -33,35 +33,101 @@ questions         ← soal di bank soal otomatis masuk pool
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/api/exam-packages/{kode_paket}/package-subjects` | Daftar semua slot mapel dalam paket |
-| POST | `/api/exam-packages/{kode_paket}/package-subjects` | Tambah slot mapel atau slot istirahat |
-| GET | `/api/exam-packages/{kode_paket}/package-subjects/{id}` | Detail slot mapel |
-| PUT | `/api/exam-packages/{kode_paket}/package-subjects/{id}` | Update semua field |
-| PATCH | `/api/exam-packages/{kode_paket}/package-subjects/{id}/update` | Update sebagian field |
-| DELETE | `/api/exam-packages/{kode_paket}/package-subjects/{id}` | Hapus slot mapel |
+| GET | `/api/feature/{kode_feature}/package-subjects` | Daftar semua slot dalam paket |
+| POST | `/api/feature/{kode_feature}/package-subjects` | Tambah slot kategori atau slot istirahat |
+| GET | `/api/feature/{kode_feature}/package-subjects/{kode_package_subject}` | Detail slot |
+| PUT | `/api/feature/{kode_feature}/package-subjects/{kode_package_subject}` | Update semua field |
+| PATCH | `/api/feature/{kode_feature}/package-subjects/{kode_package_subject}/update` | Update sebagian field |
+| DELETE | `/api/feature/{kode_feature}/package-subjects/{kode_package_subject}` | Hapus slot |
 
 ---
 
-## 1. GET /api/exam-packages/{kode_paket}/package-subjects
+## Schema Database
 
-Ambil semua slot mapel dalam paket tertentu, diurutkan by `seq`. Termasuk slot istirahat.
+```sql
+package_subjects
+├── kode_package_subject  STRING   PRIMARY KEY          -- format: PSUB-001-250515143022
+├── name_package_subject  STRING   NOT NULL             -- nama slot/sub-sesi
+├── kode_feature          STRING   NOT NULL             -- FK → feature(kode_feature) CASCADE DELETE
+├── kode_kategori         STRING   NULLABLE             -- FK → categories(kode_kategori) SET NULL ON DELETE
+│                                                       -- null hanya jika is_break = true
+├── is_break              BOOLEAN  DEFAULT false        -- false = sub-ujian normal, true = slot istirahat
+├── sub_section           STRING   NULLABLE             -- khusus UTBK Skolastik B1: induktif|deduktif|kuantitatif
+├── total_questions       INTEGER  DEFAULT 15           -- jumlah soal dari bank soal
+├── duration_minutes      INTEGER  DEFAULT 20           -- durasi sub-sesi ini (menit)
+├── break_time_seconds    INTEGER  DEFAULT 0            -- jeda otomatis SETELAH sub-sesi ini selesai (detik)
+├── passing_grade         FLOAT    DEFAULT 0            -- KKM (0 = tidak ada batas)
+├── seq                   INTEGER  DEFAULT 1            -- urutan pengerjaan dalam paket
+├── type                  TINYINT  DEFAULT 1            -- 1=pilgan, 2=esai, 3=campuran
+├── created_at            TIMESTAMP
+└── updated_at            TIMESTAMP
+```
+
+**Nilai referensi `total_questions` dan `duration_minutes` per konteks:**
+
+| Konteks | `total_questions` | `duration_minutes` |
+|---------|-------------------|---------------------|
+| Universal | 40 | 60 |
+| TKD (per mapel) | 15 | 20 |
+| TKA (per mapel) | 15 | 22.5 |
+| UTBK B1 sub-bagian | 10 | 10 |
+| UTBK B2 | — | 15 |
+| UTBK B3 | — | 25 |
+| UTBK B4 | — | 20 |
+
+**Nilai referensi `break_time_seconds` per konteks:**
+
+| Konteks | Detik |
+|---------|-------|
+| TKD antar mapel | 30 |
+| TKD → TKA | 60 |
+| TKA antar mapel | 30 |
+| Tidak ada jeda | 0 |
+
+> **Catatan:** Nilai di atas adalah referensi default — bukan constraint. Bisa diisi bebas sesuai kebutuhan paket.
+
+---
+
+## Format Respon
+
+Semua endpoint menggunakan format respon yang konsisten:
+
+```json
+{
+    "statusCode": 200,
+    "message": "Pesan respon",
+    "data": {}
+}
+```
+
+---
+
+## 1. GET /api/feature/{kode_feature}/package-subjects
+
+Ambil semua slot dalam paket tertentu, diurutkan berdasarkan `seq`. Termasuk slot istirahat. Response menyertakan data `category` beserta daftar mapel aktif di dalamnya.
+
+**Headers**
+```
+Authorization: Bearer {token}
+```
 
 **Parameter URL**
 
 | Parameter | Keterangan |
 |-----------|------------|
-| `kode_paket` | Kode paket induk |
+| `kode_feature` | Kode paket induk, contoh: `PKG-001-250515143022` |
 
 **Response 200 — Berhasil**
 ```json
 {
     "statusCode": 200,
-    "message": "Daftar mapel paket berhasil diambil",
+    "message": "Daftar slot kategori berhasil diambil",
     "data": [
         {
-            "kode_paket_subject": "PSUB-001-250515143022",
-            "kode_paket": "PKG-001-xxx",
-            "kode_subject": "SUB-005-xxx",
+            "kode_package_subject": "PSUB-001-250515143022",
+            "name_package_subject": "Matematika Dasar",
+            "kode_feature": "PKG-001-xxx",
+            "kode_kategori": "CAT-001-xxx",
             "is_break": false,
             "sub_section": null,
             "total_questions": 15,
@@ -70,76 +136,102 @@ Ambil semua slot mapel dalam paket tertentu, diurutkan by `seq`. Termasuk slot i
             "passing_grade": 0,
             "seq": 1,
             "type": 1,
-            "subject": {
-                "kode_subject": "SUB-005-xxx",
-                "name": "Matematika Dasar",
-                "icon": "calculator",
-                "color": "#3B82F6"
+            "created_at": "2025-05-15T14:30:22.000000Z",
+            "updated_at": "2025-05-15T14:30:22.000000Z",
+            "category": {
+                "kode_kategori": "CAT-001-xxx",
+                "name": "Tes Kemampuan Dasar",
+                "slug": "tkd",
+                "subjects": [
+                    {
+                        "kode_subject": "SUB-005-xxx",
+                        "name": "Matematika Dasar",
+                        "icon": "calculator",
+                        "color": "#3B82F6"
+                    }
+                ]
             }
         },
         {
-            "kode_paket_subject": "PSUB-002-250515143022",
-            "kode_paket": "PKG-001-xxx",
-            "kode_subject": null,
+            "kode_package_subject": "PSUB-002-250515143022",
+            "name_package_subject": "Istirahat",
+            "kode_feature": "PKG-001-xxx",
+            "kode_kategori": null,
             "is_break": true,
+            "sub_section": null,
             "total_questions": 0,
             "duration_minutes": 1,
             "break_time_seconds": 0,
+            "passing_grade": 0,
             "seq": 2,
-            "subject": null
-        },
-        {
-            "kode_paket_subject": "PSUB-003-250515143022",
-            "kode_paket": "PKG-001-xxx",
-            "kode_subject": "SUB-006-xxx",
-            "is_break": false,
-            "total_questions": 15,
-            "duration_minutes": 20,
-            "break_time_seconds": 30,
-            "seq": 3,
-            "subject": {
-                "kode_subject": "SUB-006-xxx",
-                "name": "Bahasa Indonesia (TKD)",
-                "color": "#EF4444"
-            }
+            "type": 1,
+            "created_at": "2025-05-15T14:30:22.000000Z",
+            "updated_at": "2025-05-15T14:30:22.000000Z",
+            "category": null
         }
     ]
 }
 ```
 
+> **Catatan `is_break: true`** — field `kode_kategori` dan `category` bernilai `null`.
+> Field `total_questions`, `passing_grade`, dan `type` tetap ada tapi tidak relevan untuk slot istirahat.
+
 **Response 404 — Paket Tidak Ditemukan**
 ```json
 {
     "statusCode": 404,
-    "message": "Paket ujian tidak ditemukan",
+    "message": "Feature tidak ditemukan",
+    "data": null
+}
+```
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Gagal mengambil data slot kategori",
     "data": null
 }
 ```
 
 ---
 
-## 2. POST /api/exam-packages/{kode_paket}/package-subjects
+## 2. POST /api/feature/{kode_feature}/package-subjects
 
-Tambah slot mapel atau slot istirahat ke paket. `kode_paket_subject` di-generate otomatis.
+Tambah slot kategori atau slot istirahat ke paket. `kode_package_subject` di-generate otomatis oleh server.
+
+**Headers**
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**Parameter URL**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_feature` | Kode paket induk |
 
 **Body Request**
 
-| Field | Tipe | Wajib | Keterangan |
-|-------|------|-------|------------|
-| `kode_subject` | string | ✅* | Wajib jika `is_break: false`. FK ke `subjects` |
-| `is_break` | boolean | ❌ | Default `false`. `true` = slot istirahat (tidak ada soal) |
-| `sub_section` | string | ❌ | Khusus UTBK Skolastik Bagian 1: `induktif` `deduktif` `kuantitatif`. Fitur lain biarkan `null` |
-| `total_questions` | integer, min:1 | ❌ | Jumlah soal yang diambil dari bank soal. Default `15` |
-| `duration_minutes` | integer, min:1 | ❌ | Durasi sub-sesi mapel ini dalam menit. Default `20` |
-| `break_time_seconds` | integer, min:0 | ❌ | Jeda otomatis (detik) setelah sub-sesi ini selesai sebelum lanjut ke berikutnya. Default `0` |
-| `passing_grade` | float 0-100 | ❌ | Nilai minimum kelulusan mapel ini. Default `0` (tidak ada KKM) |
-| `seq` | integer, min:1 | ❌ | Urutan pengerjaan. Default otomatis urutan terakhir + 1 |
-| `type` | integer | ❌ | Default `1`. `1`=pilgan `2`=esai `3`=campuran |
+| Field | Tipe | Wajib | Default | Keterangan |
+|-------|------|-------|---------|------------|
+| `name_package_subject` | string, max:100 | ✅ | — | Nama slot / sub-sesi |
+| `kode_kategori` | string | ✅* | — | Wajib jika `is_break: false`. FK ke `categories` |
+| `is_break` | boolean | ❌ | `false` | `true` = slot istirahat (tidak ada soal, `kode_kategori` diabaikan) |
+| `sub_section` | string, max:50 | ❌ | `null` | Khusus UTBK Skolastik B1: `induktif` `deduktif` `kuantitatif`. Biarkan `null` untuk fitur lain |
+| `total_questions` | integer ≥ 1 | ❌ | `15` (mapel) / `0` (istirahat) | Jumlah soal dari bank soal |
+| `duration_minutes` | integer ≥ 1 | ❌ | `20` (mapel) / `1` (istirahat) | Durasi sub-sesi dalam menit |
+| `break_time_seconds` | integer ≥ 0 | ❌ | `0` | Jeda otomatis (detik) setelah sub-sesi ini selesai sebelum lanjut ke berikutnya |
+| `passing_grade` | float 0–100 | ❌ | `0` | Nilai minimum kelulusan. `0` = tidak ada KKM |
+| `seq` | integer ≥ 1 | ❌ | auto (max seq + 1) | Urutan pengerjaan dalam paket |
+| `type` | integer | ❌ | `1` | `1` = pilihan ganda, `2` = esai, `3` = campuran |
 
-**Contoh — tambah slot mapel**
+**Contoh — Tambah slot kategori**
 ```json
 {
-    "kode_subject": "SUB-005-250515090100",
+    "name_package_subject": "Matematika Dasar",
+    "kode_kategori": "CAT-001-250515090000",
     "total_questions": 15,
     "duration_minutes": 20,
     "break_time_seconds": 30,
@@ -147,10 +239,11 @@ Tambah slot mapel atau slot istirahat ke paket. `kode_paket_subject` di-generate
 }
 ```
 
-**Contoh — tambah slot mapel dengan KKM**
+**Contoh — Tambah slot kategori dengan KKM**
 ```json
 {
-    "kode_subject": "SUB-009-xxx",
+    "name_package_subject": "Fisika",
+    "kode_kategori": "CAT-002-xxx",
     "total_questions": 15,
     "duration_minutes": 23,
     "break_time_seconds": 30,
@@ -159,9 +252,10 @@ Tambah slot mapel atau slot istirahat ke paket. `kode_paket_subject` di-generate
 }
 ```
 
-**Contoh — tambah slot istirahat**
+**Contoh — Tambah slot istirahat**
 ```json
 {
+    "name_package_subject": "Istirahat",
     "is_break": true,
     "duration_minutes": 1,
     "seq": 2
@@ -171,7 +265,8 @@ Tambah slot mapel atau slot istirahat ke paket. `kode_paket_subject` di-generate
 **Contoh — UTBK Skolastik sub-bagian**
 ```json
 {
-    "kode_subject": "SUB-016-xxx",
+    "name_package_subject": "Skolastik — Penalaran Induktif",
+    "kode_kategori": "CAT-005-xxx",
     "sub_section": "induktif",
     "total_questions": 10,
     "duration_minutes": 10,
@@ -183,112 +278,361 @@ Tambah slot mapel atau slot istirahat ke paket. `kode_paket_subject` di-generate
 ```json
 {
     "statusCode": 201,
-    "message": "Mapel paket berhasil ditambahkan",
+    "message": "Slot kategori berhasil ditambahkan",
     "data": {
-        "kode_paket_subject": "PSUB-004-250515143022",
-        "kode_paket": "PKG-001-xxx",
-        "kode_subject": "SUB-005-xxx",
+        "kode_package_subject": "PSUB-004-250515143022",
+        "name_package_subject": "Matematika Dasar",
+        "kode_feature": "PKG-001-xxx",
+        "kode_kategori": "CAT-001-xxx",
         "is_break": false,
+        "sub_section": null,
         "total_questions": 15,
         "duration_minutes": 20,
         "break_time_seconds": 30,
         "passing_grade": 0,
         "seq": 1,
         "type": 1,
-        "subject": {
-            "name": "Matematika Dasar",
-            "color": "#3B82F6"
+        "created_at": "2025-05-15T14:30:22.000000Z",
+        "updated_at": "2025-05-15T14:30:22.000000Z",
+        "category": {
+            "kode_kategori": "CAT-001-xxx",
+            "name": "Tes Kemampuan Dasar",
+            "slug": "tkd",
+            "subjects": [
+                {
+                    "kode_subject": "SUB-005-xxx",
+                    "name": "Matematika Dasar",
+                    "icon": "calculator",
+                    "color": "#3B82F6"
+                }
+            ]
         }
     }
 }
 ```
 
-**Response 422 — Subject Tidak Diisi**
+**Response 422 — Kategori Tidak Diisi**
 ```json
 {
     "statusCode": 422,
     "message": "Validasi gagal",
     "errors": {
-        "kode_subject": ["Mata pelajaran wajib diisi jika bukan slot istirahat"]
+        "kode_kategori": ["Kategori wajib diisi jika bukan slot istirahat"]
     }
+}
+```
+
+**Response 422 — Validasi Field**
+```json
+{
+    "statusCode": 422,
+    "message": "Validasi gagal",
+    "errors": {
+        "name_package_subject": ["The name package subject field is required."],
+        "kode_kategori": ["The selected kode kategori is invalid."],
+        "type": ["The selected type is invalid."]
+    }
+}
+```
+
+**Response 500 — Gagal Ditambahkan**
+```json
+{
+    "statusCode": 500,
+    "message": "Slot kategori gagal ditambahkan",
+    "data": null
 }
 ```
 
 ---
 
-## 3. GET /api/exam-packages/{kode_paket}/package-subjects/{kode_paket_subject}
+## 3. GET /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
 
-Detail satu slot mapel. Response sudah include `questions_count` — jumlah soal yang tersedia di bank soal untuk mapel ini.
+Detail satu slot. Response menyertakan `total_soal_tersedia` — total soal aktif di bank soal untuk semua mapel dalam kategori slot ini.
 
-> `questions_count` penting untuk dicek sebelum user mulai ujian.
-> Jika `questions_count < total_questions`, sesi tidak bisa dimulai karena soal tidak cukup untuk di-random.
+> **`total_soal_tersedia` penting** untuk dicek sebelum user mulai ujian.
+> Jika `total_soal_tersedia < total_questions`, sesi tidak bisa dimulai karena soal tidak cukup untuk di-random.
+
+**Headers**
+```
+Authorization: Bearer {token}
+```
+
+**Parameter URL**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_feature` | Kode paket induk |
+| `kode_package_subject` | Kode slot, contoh: `PSUB-001-250515143022` |
 
 **Response 200 — Berhasil**
 ```json
 {
     "statusCode": 200,
-    "message": "Detail mapel paket berhasil diambil",
+    "message": "Detail slot kategori berhasil diambil",
     "data": {
-        "kode_paket_subject": "PSUB-001-xxx",
-        "kode_paket": "PKG-001-xxx",
-        "kode_subject": "SUB-005-xxx",
+        "kode_package_subject": "PSUB-001-250515143022",
+        "name_package_subject": "Matematika Dasar",
+        "kode_feature": "PKG-001-xxx",
+        "kode_kategori": "CAT-001-xxx",
         "is_break": false,
+        "sub_section": null,
         "total_questions": 15,
         "duration_minutes": 20,
         "break_time_seconds": 30,
         "passing_grade": 0,
         "seq": 1,
         "type": 1,
-        "questions_count": 120,
-        "subject": {
-            "kode_subject": "SUB-005-xxx",
-            "name": "Matematika Dasar",
-            "icon": "calculator",
-            "color": "#3B82F6"
+        "total_soal_tersedia": 120,
+        "created_at": "2025-05-15T09:01:00.000000Z",
+        "updated_at": "2025-05-15T09:01:00.000000Z",
+        "category": {
+            "kode_kategori": "CAT-001-xxx",
+            "name": "Tes Kemampuan Dasar",
+            "slug": "tkd",
+            "subjects": [
+                {
+                    "kode_subject": "SUB-005-xxx",
+                    "name": "Matematika Dasar",
+                    "icon": "calculator",
+                    "color": "#3B82F6",
+                    "questions_count": 120
+                }
+            ]
         },
-        "exam_package": {
-            "kode_paket": "PKG-001-xxx",
+        "feature": {
+            "kode_feature": "PKG-001-xxx",
             "name": "TO Mandiri Saintek Part 1"
         }
     }
 }
 ```
 
+> **Catatan `total_soal_tersedia`** — merupakan penjumlahan `questions_count` dari semua mapel aktif dalam kategori slot ini.
+> Untuk slot istirahat (`is_break: true`), field ini akan bernilai `0`.
+
+**Response 404 — Slot Tidak Ditemukan**
+```json
+{
+    "statusCode": 404,
+    "message": "Slot kategori tidak ditemukan",
+    "data": null
+}
+```
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Gagal mengambil detail slot kategori",
+    "data": null
+}
+```
+
 ---
 
-## 4. PUT /api/exam-packages/{kode_paket}/package-subjects/{kode_paket_subject}
+## 4. PUT /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
 
-Update semua field slot mapel. Semua field bersifat `sometimes`.
+Update data slot. Semua field bersifat `sometimes` — kirim hanya field yang ingin diubah.
 
-> Jika `is_break` diubah ke `true`, `kode_subject` otomatis di-set `null`.
+> Jika `is_break` diubah ke `true`, field `kode_kategori` otomatis di-set `null` oleh server.
+
+**Headers**
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**Parameter URL**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_feature` | Kode paket induk |
+| `kode_package_subject` | Kode slot yang ingin diupdate |
+
+**Body Request** — semua field opsional (`sometimes`):
+
+| Field | Tipe | Keterangan |
+|-------|------|------------|
+| `name_package_subject` | string, max:100 | Nama slot / sub-sesi |
+| `kode_kategori` | string \| null | FK ke `categories`. Set `null` hanya jika mengubah ke slot istirahat |
+| `is_break` | boolean | Jika diubah ke `true`, `kode_kategori` di-null-kan otomatis |
+| `sub_section` | string \| null, max:50 | `induktif` `deduktif` `kuantitatif` atau `null` |
+| `total_questions` | integer ≥ 1 | |
+| `duration_minutes` | integer ≥ 1 | |
+| `break_time_seconds` | integer ≥ 0 | |
+| `passing_grade` | float 0–100 | |
+| `seq` | integer ≥ 1 | |
+| `type` | integer | `1` `2` `3` |
+
+**Contoh Request — Ubah durasi dan jumlah soal**
+```json
+{
+    "total_questions": 20,
+    "duration_minutes": 25
+}
+```
+
+**Response 200 — Berhasil Diperbarui**
+```json
+{
+    "statusCode": 200,
+    "message": "Slot kategori berhasil diperbarui",
+    "data": {
+        "kode_package_subject": "PSUB-001-250515143022",
+        "name_package_subject": "Matematika Dasar",
+        "kode_feature": "PKG-001-xxx",
+        "kode_kategori": "CAT-001-xxx",
+        "is_break": false,
+        "sub_section": null,
+        "total_questions": 20,
+        "duration_minutes": 25,
+        "break_time_seconds": 30,
+        "passing_grade": 0,
+        "seq": 1,
+        "type": 1,
+        "created_at": "2025-05-15T09:01:00.000000Z",
+        "updated_at": "2025-05-15T16:00:00.000000Z",
+        "category": {
+            "kode_kategori": "CAT-001-xxx",
+            "name": "Tes Kemampuan Dasar",
+            "slug": "tkd",
+            "subjects": [
+                {
+                    "kode_subject": "SUB-005-xxx",
+                    "name": "Matematika Dasar",
+                    "icon": "calculator",
+                    "color": "#3B82F6"
+                }
+            ]
+        }
+    }
+}
+```
+
+**Response 404 — Tidak Ditemukan**
+```json
+{
+    "statusCode": 404,
+    "message": "Slot kategori tidak ditemukan",
+    "data": null
+}
+```
+
+**Response 422 — Validasi Gagal**
+```json
+{
+    "statusCode": 422,
+    "message": "Validasi gagal",
+    "errors": {
+        "duration_minutes": ["The duration minutes field must be at least 1."]
+    }
+}
+```
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Slot kategori gagal diperbarui",
+    "data": null
+}
+```
 
 ---
 
-## 5. PATCH /api/exam-packages/{kode_paket}/package-subjects/{kode_paket_subject}/update
+## 5. PATCH /api/feature/{kode_feature}/package-subjects/{kode_package_subject}/update
 
-Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk perubahan kecil.
+Update **sebagian field saja** (partial update). Minimal 1 field harus dikirim.
 
-**Contoh — ubah durasi saja**
+> Jika `is_break` diubah ke `true`, field `kode_kategori` otomatis di-set `null` oleh server.
+
+**Headers**
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**Parameter URL**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_feature` | Kode paket induk |
+| `kode_package_subject` | Kode slot yang ingin diupdate |
+
+**Body Request** *(minimal 1 field)* — field sama dengan PUT:
+
+| Field | Tipe | Keterangan |
+|-------|------|------------|
+| `name_package_subject` | string, max:100 | |
+| `kode_kategori` | string \| null | |
+| `is_break` | boolean | Jika `true`, `kode_kategori` di-null-kan otomatis |
+| `sub_section` | string \| null, max:50 | |
+| `total_questions` | integer ≥ 1 | |
+| `duration_minutes` | integer ≥ 1 | |
+| `break_time_seconds` | integer ≥ 0 | |
+| `passing_grade` | float 0–100 | |
+| `seq` | integer ≥ 1 | |
+| `type` | integer | `1` `2` `3` |
+
+**Contoh — Ubah durasi saja**
 ```json
 { "duration_minutes": 25 }
 ```
 
-**Contoh — ubah jumlah soal**
+**Contoh — Ubah jumlah soal**
 ```json
 { "total_questions": 20 }
 ```
 
-**Contoh — pindah urutan**
+**Contoh — Pindah urutan**
 ```json
 { "seq": 3 }
 ```
 
-**Contoh — tambah jeda istirahat setelah slot ini**
+**Contoh — Tambah jeda setelah slot ini**
 ```json
 { "break_time_seconds": 60 }
 ```
 
-**Response 422 — Tidak Ada Data**
+**Response 200 — Berhasil Diperbarui Sebagian**
+```json
+{
+    "statusCode": 200,
+    "message": "Slot kategori berhasil diperbarui sebagian",
+    "data": {
+        "kode_package_subject": "PSUB-001-250515143022",
+        "name_package_subject": "Matematika Dasar",
+        "kode_feature": "PKG-001-xxx",
+        "kode_kategori": "CAT-001-xxx",
+        "is_break": false,
+        "sub_section": null,
+        "total_questions": 15,
+        "duration_minutes": 25,
+        "break_time_seconds": 30,
+        "passing_grade": 0,
+        "seq": 1,
+        "type": 1,
+        "created_at": "2025-05-15T09:01:00.000000Z",
+        "updated_at": "2025-05-15T16:00:00.000000Z",
+        "category": {
+            "kode_kategori": "CAT-001-xxx",
+            "name": "Tes Kemampuan Dasar",
+            "slug": "tkd",
+            "subjects": [
+                {
+                    "kode_subject": "SUB-005-xxx",
+                    "name": "Matematika Dasar",
+                    "icon": "calculator",
+                    "color": "#3B82F6"
+                }
+            ]
+        }
+    }
+}
+```
+
+**Response 422 — Tidak Ada Data Dikirim**
 ```json
 {
     "statusCode": 422,
@@ -299,26 +643,74 @@ Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk perub
 }
 ```
 
+**Response 404 — Tidak Ditemukan**
+```json
+{
+    "statusCode": 404,
+    "message": "Slot kategori tidak ditemukan",
+    "data": null
+}
+```
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Slot kategori gagal diperbarui",
+    "data": null
+}
+```
+
 ---
 
-## 6. DELETE /api/exam-packages/{kode_paket}/package-subjects/{kode_paket_subject}
+## 6. DELETE /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
 
-Hapus slot mapel dari paket. **Gagal** jika mapel ini masih punya soal di bank soal yang terikat.
+Hapus slot dari paket. **Gagal** jika slot ini sudah punya sesi ujian yang terikat (artinya sudah ada user yang pernah mengerjakan sub-sesi ini).
+
+**Headers**
+```
+Authorization: Bearer {token}
+```
+
+**Parameter URL**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_feature` | Kode paket induk |
+| `kode_package_subject` | Kode slot yang ingin dihapus |
 
 **Response 200 — Berhasil Dihapus**
 ```json
 {
     "statusCode": 200,
-    "message": "Mapel paket berhasil dihapus",
+    "message": "Slot kategori berhasil dihapus",
     "data": null
 }
 ```
 
-**Response 409 — Konflik**
+**Response 404 — Tidak Ditemukan**
+```json
+{
+    "statusCode": 404,
+    "message": "Slot kategori tidak ditemukan",
+    "data": null
+}
+```
+
+**Response 409 — Konflik (Sudah Ada Sesi Terikat)**
 ```json
 {
     "statusCode": 409,
-    "message": "Mapel paket tidak bisa dihapus karena masih memiliki 120 soal",
+    "message": "Slot tidak bisa dihapus karena sudah ada 5 sesi ujian yang terikat",
+    "data": null
+}
+```
+
+**Response 500 — Gagal Dihapus**
+```json
+{
+    "statusCode": 500,
+    "message": "Slot kategori gagal dihapus",
     "data": null
 }
 ```
@@ -333,7 +725,7 @@ Hapus slot mapel dari paket. **Gagal** jika mapel ini masih punya soal di bank s
 | `201` | Data berhasil dibuat |
 | `401` | Tidak terautentikasi |
 | `403` | Tidak punya akses |
-| `404` | Paket atau slot mapel tidak ditemukan |
-| `409` | Konflik — masih ada soal terikat |
+| `404` | Paket atau slot tidak ditemukan |
+| `409` | Konflik — sudah ada sesi ujian terikat |
 | `422` | Validasi gagal |
 | `500` | Server error |
