@@ -10,12 +10,12 @@
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/api/subjects-categories` | Ambil semua kategori |
-| POST | `/api/subjects-categories` | Tambah kategori baru |
-| GET | `/api/subjects-categories/{kode_kategori}` | Detail satu kategori |
-| PUT | `/api/subjects-categories/{kode_kategori}` | Update semua field |
-| PATCH | `/api/subjects-categories/{kode_kategori}/update` | Update sebagian field |
-| DELETE | `/api/subjects-categories/{kode_kategori}` | Hapus kategori |
+| GET | `/api/category` | Ambil semua kategori |
+| POST | `/api/category` | Tambah kategori baru |
+| GET | `/api/category/{kode_kategori}` | Detail satu kategori |
+| PUT | `/api/category/{kode_kategori}` | Update semua field |
+| PATCH | `/api/category/{kode_kategori}/update` | Update sebagian field |
+| DELETE | `/api/category/{kode_kategori}` | Hapus kategori |
 
 ---
 
@@ -33,7 +33,7 @@ Semua endpoint menggunakan format respon yang konsisten:
 
 ---
 
-## 1. GET /api/subjects-categories
+## 1. GET /api/category
 
 Mengambil semua kategori mapel, diurutkan berdasarkan `seq`.
 
@@ -81,7 +81,7 @@ Authorization: Bearer {token}
 
 ---
 
-## 2. POST /api/subjects-categories
+## 2. POST /api/category
 
 Menambahkan kategori mapel baru. `kode_kategori` di-generate otomatis oleh server dengan format `CAT-{sequential}-{timestamp}`, **frontend tidak perlu mengirim kode**.
 
@@ -158,7 +158,7 @@ Content-Type: application/json
 
 ---
 
-## 3. GET /api/subjects-categories/{kode_kategori}
+## 3. GET /api/category/{kode_kategori}
 
 Mengambil detail satu kategori beserta daftar mata pelajaran aktif yang terikat.
 
@@ -221,7 +221,7 @@ Authorization: Bearer {token}
 
 ---
 
-## 4. PUT /api/subjects-categories/{kode_kategori}
+## 4. PUT /api/category/{kode_kategori}
 
 Memperbarui data kategori. Semua field bersifat opsional (`sometimes`) — hanya kirim field yang ingin diubah. `kode_kategori` **tidak bisa diubah** setelah kategori dibuat.
 
@@ -295,7 +295,7 @@ Content-Type: application/json
 
 ---
 
-## 5. DELETE /api/subjects-categories/{kode_kategori}
+## 5. DELETE /api/category/{kode_kategori}
 
 Menghapus kategori. **Tidak bisa dihapus** jika masih ada mata pelajaran yang terikat ke kategori ini.
 
@@ -349,7 +349,7 @@ Authorization: Bearer {token}
 
 ---
 
-## 6. PATCH /api/subjects-categories/{kode_kategori}/update
+## 6. PATCH /api/category/{kode_kategori}/update
 
 Update **sebagian field saja** (partial update). Berbeda dengan `PUT` yang mengupdate keseluruhan data, `PATCH` hanya mengubah field yang dikirim — field lain tidak tersentuh sama sekali. Minimal harus ada 1 field yang dikirim.
 
