@@ -1,0 +1,485 @@
+# API Dokumentasi — Soal (Questions)
+
+> **Base URL:** `/api`
+> **Auth:** Bearer Token (Laravel Sanctum)
+> **Content-Type:** `application/json`
+
+---
+
+## Tentang Modul Ini
+
+Modul ini mengelola **bank soal global**. Soal terikat ke mata pelajaran (`subject`), bukan ke paket ujian secara langsung. Dengan pendekatan bank soal, satu soal bisa digunakan oleh banyak paket yang menggunakan mata pelajaran yang sama.
+
+**Posisi dalam alur:**
+```
+subjects           ← soal terikat ke mapel
+    ↓
+questions          ← dibuat di sini (bank soal)
+    ↓
+saat ujian mulai:
+    package_subjects (total_questions: 15)
+        → random ambil 15 soal dari bank soal mapel yang sama
+        → snapshot ke question_sesi (urutan tetap per user)
+```
+
+> **Penting:** Soal tidak di-assign manual ke paket.
+> Cukup pastikan `kode_subject` soal sama dengan `kode_subject` di `package_subjects`.
+> Soal yang baru ditambahkan otomatis masuk pool random paket tersebut.
+
+**Satu endpoint ini mencakup 3 tabel:**
+- `question_passages` — teks bacaan bersama (opsional)
+- `questions` — data soal utama
+- `question_options` — pilihan jawaban A-E
+
+---
+
+## Daftar Endpoint
+
+| Method | Endpoint | Fungsi |
+|--------|----------|--------|
+| GET | `/api/questions` | Ambil bank soal dengan pagination |
+| GET | `/api/questions/passages` | Daftar teks bacaan (untuk dropdown di form soal) |
+| POST | `/api/questions` | Buat soal + pilihan jawaban + passage sekaligus |
+| GET | `/api/questions/{kode_soal}` | Detail soal (tanpa jawaban benar) |
+| GET | `/api/questions/{kode_soal}/answer` | Detail soal + jawaban benar (admin only) |
+| PUT | `/api/questions/{kode_soal}` | Update soal + replace pilihan jawaban |
+| PATCH | `/api/questions/{kode_soal}/update` | Update sebagian field soal |
+| DELETE | `/api/questions/{kode_soal}` | Hapus soal |
+| DELETE | `/api/questions/bulk-delete` | Hapus banyak soal sekaligus |
+
+> **Urutan endpoint penting!** `passages` dan `bulk-delete` harus dipanggil
+> sebelum `{kode_soal}` agar tidak dianggap sebagai parameter.
+
+---
+
+## 1. GET /api/questions
+
+Ambil bank soal dengan pagination. Default 20 soal per halaman. Sudah include relasi `subject`, `passage`, dan `options`.
+
+> `correct_answer` dan `discussion` **tidak ikut** di response ini.
+> Gunakan endpoint `/answer` khusus untuk admin.
+
+**Query Parameters** *(semua opsional)*
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_subject` | Filter by kode mata pelajaran |
+| `type` | `1` = pilihan ganda, `2` = esai |
+| `difficulty` | `mudah` `sedang` `sulit` |
+| `tahun` | Filter by tahun soal |
+| `chapter` | Filter by bab/topik |
+| `has_passage` | `1` = hanya soal dengan bacaan, `0` = tanpa bacaan |
+| `per_page` | Jumlah per halaman, default `20` |
+
+**Contoh Request**
+```
+GET /api/questions?kode_subject=SUB-001-xxx
+GET /api/questions?kode_subject=SUB-001-xxx&difficulty=mudah&tahun=2025
+GET /api/questions?has_passage=1&per_page=10
+```
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Daftar soal berhasil diambil",
+    "data": {
+        "list": [
+            {
+                "kode_soal": "SOA-001-250515143022",
+                "kode_subject": "SUB-001-xxx",
+                "kode_passage": null,
+                "seq": 1,
+                "chapter": "Aljabar",
+                "question": "<p>Hasil dari 3² + 4² adalah...</p>",
+                "url_file": null,
+                "score": 1.0,
+                "type": 1,
+                "difficulty": "mudah",
+                "tahun": 2025,
+                "subject": { "name": "Matematika SMA", "color": "#3B82F6" },
+                "passage": null,
+                "options": [
+                    { "option_number": 1, "content": "<p>12</p>" },
+                    { "option_number": 2, "content": "<p>20</p>" },
+                    { "option_number": 3, "content": "<p>25</p>" },
+                    { "option_number": 4, "content": "<p>30</p>" },
+                    { "option_number": 5, "content": "<p>49</p>" }
+                ]
+            }
+        ],
+        "pagination": {
+            "total": 500,
+            "perPage": 20,
+            "currentPage": 1,
+            "lastPage": 25,
+            "from": 1,
+            "to": 20,
+            "hasMorePages": true
+        }
+    }
+}
+```
+
+---
+
+## 2. GET /api/questions/passages
+
+Ambil daftar teks bacaan untuk **dropdown pilih passage** di form input soal. Filter by `kode_subject` untuk tampilkan hanya bacaan mapel tertentu.
+
+> Panggil endpoint ini **sebelum** form input soal dibuka, agar dropdown
+> pilihan "pakai bacaan yang sudah ada" sudah ter-populate.
+
+**Query Parameters**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_subject` | Filter bacaan by mapel (dianjurkan selalu diisi) |
+
+**Contoh Request**
+```
+GET /api/questions/passages?kode_subject=SUB-002-xxx
+```
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Daftar teks bacaan berhasil diambil",
+    "data": [
+        {
+            "kode_passage": "PAS-001-250515143022",
+            "kode_subject": "SUB-002-xxx",
+            "title": "Untuk soal nomor 1-4, bacalah teks berikut",
+            "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan...</p>",
+            "seq": 1,
+            "subject": { "name": "Bahasa Indonesia" }
+        }
+    ]
+}
+```
+
+---
+
+## 3. POST /api/questions
+
+Buat soal baru. Dalam **satu request** bisa sekaligus:
+- Buat soal utama
+- Buat pilihan jawaban A-E
+- Buat teks bacaan baru (opsional) ATAU pakai teks bacaan yang sudah ada
+
+`kode_soal` di-generate otomatis dengan format `SOA-{sequential}-{timestamp}`.
+
+**Body Request**
+
+| Field | Tipe | Wajib | Keterangan |
+|-------|------|-------|------------|
+| `kode_subject` | string | ✅ | FK ke `subjects` |
+| `question` | string | ✅ | Teks soal (HTML dari rich text editor, support gambar & LaTeX) |
+| `type` | integer | ❌ | Default `1` (pilihan ganda). `1`=pilgan `2`=esai |
+| `correct_answer` | integer 1-9 | ✅* | Wajib jika `type=1`. Harus sesuai salah satu `option_number` yang dikirim |
+| `options` | array | ✅* | Wajib jika `type=1`. Min 2, max 9 pilihan |
+| `options.*.option_number` | integer 1-9 | ✅ | Nomor pilihan (1=A, 2=B, 3=C, dst) |
+| `options.*.content` | string | ✅ | Isi pilihan jawaban (HTML) |
+| `difficulty` | string | ❌ | `mudah` `sedang` `sulit`. Tampil sebagai badge di pembahasan |
+| `tahun` | integer 2000-2099 | ❌ | Tahun soal — berguna untuk filter hapus soal lama per tahun |
+| `chapter` | string, max:100 | ❌ | Bab atau topik soal |
+| `discussion` | string | ❌ | Pembahasan soal (HTML). Hanya tampil setelah sesi ujian selesai |
+| `score` | float | ❌ | Nilai jika menjawab benar. Default `1.0` |
+| `url_file` | string | ❌ | Path lampiran gambar/file tambahan |
+| `url_video` | string | ❌ | Path lampiran video |
+| `url_pdf` | string | ❌ | Path lampiran PDF |
+| `kode_passage` | string | ❌* | Pakai teks bacaan yang sudah ada. **Tidak bisa bersamaan dengan `passage`** |
+| `passage` | object | ❌* | Buat teks bacaan baru sekaligus. **Tidak bisa bersamaan dengan `kode_passage`** |
+| `passage.content` | string | ✅* | Wajib jika `passage` dikirim. Isi teks bacaan (HTML) |
+| `passage.title` | string | ❌ | Judul bacaan |
+| `passage.seq` | integer | ❌ | Urutan bacaan. Default `1` |
+
+**Skenario 1 — Soal mandiri tanpa bacaan**
+```json
+{
+    "kode_subject": "SUB-001-xxx",
+    "question": "<p>Hasil dari 3² + 4² adalah...</p>",
+    "type": 1,
+    "correct_answer": 3,
+    "difficulty": "mudah",
+    "tahun": 2025,
+    "chapter": "Aljabar",
+    "discussion": "<p>3²=9, 4²=16, maka 9+16=<strong>25</strong>.</p>",
+    "score": 1.0,
+    "options": [
+        { "option_number": 1, "content": "<p>12</p>" },
+        { "option_number": 2, "content": "<p>20</p>" },
+        { "option_number": 3, "content": "<p>25</p>" },
+        { "option_number": 4, "content": "<p>30</p>" },
+        { "option_number": 5, "content": "<p>49</p>" }
+    ]
+}
+```
+
+**Skenario 2 — Soal dengan teks bacaan BARU (soal 1 dari 3 soal yang share bacaan ini)**
+```json
+{
+    "kode_subject": "SUB-002-xxx",
+    "question": "<p>Simpulan yang paling tepat berdasarkan bacaan adalah...</p>",
+    "type": 1,
+    "correct_answer": 2,
+    "difficulty": "sedang",
+    "tahun": 2025,
+    "passage": {
+        "title": "Untuk soal nomor 1-3, bacalah teks berikut",
+        "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan menyebabkan musim tanam menjadi tidak menentu...</p>"
+    },
+    "options": [
+        { "option_number": 1, "content": "<p>Penurunan pendapatan disebabkan oleh kebijakan pemerintah</p>" },
+        { "option_number": 2, "content": "<p>Perubahan curah hujan berkontribusi terhadap menurunnya pendapatan</p>" },
+        { "option_number": 3, "content": "<p>Bantuan pupuk terbukti meningkatkan pendapatan</p>" },
+        { "option_number": 4, "content": "<p>Petani belum mampu memanfaatkan bantuan secara optimal</p>" },
+        { "option_number": 5, "content": "<p>Pemerintah memberikan bantuan setelah pendapatan meningkat</p>" }
+    ]
+}
+```
+
+**Skenario 3 — Soal dengan teks bacaan YANG SUDAH ADA (soal 2 dan 3 share bacaan yang sama)**
+```json
+{
+    "kode_subject": "SUB-002-xxx",
+    "kode_passage": "PAS-001-250515143022",
+    "question": "<p>Mengapa pendapatan petani belum mengalami peningkatan yang berarti?</p>",
+    "type": 1,
+    "correct_answer": 4,
+    "difficulty": "sedang",
+    "tahun": 2025,
+    "options": [
+        { "option_number": 1, "content": "<p>Karena bantuan pupuk tidak diberikan tepat waktu</p>" },
+        { "option_number": 2, "content": "<p>Karena curah hujan terus meningkat</p>" },
+        { "option_number": 3, "content": "<p>Karena petani menolak bantuan pemerintah</p>" },
+        { "option_number": 4, "content": "<p>Karena pola curah hujan yang tidak menentu belum teratasi</p>" },
+        { "option_number": 5, "content": "<p>Karena bibit unggul tidak tersedia</p>" }
+    ]
+}
+```
+
+**Response 201 — Berhasil Ditambahkan**
+```json
+{
+    "statusCode": 201,
+    "message": "Soal berhasil ditambahkan",
+    "data": {
+        "kode_soal": "SOA-001-250515143022",
+        "kode_subject": "SUB-001-xxx",
+        "kode_passage": null,
+        "seq": 1,
+        "chapter": "Aljabar",
+        "question": "<p>Hasil dari 3² + 4² adalah...</p>",
+        "type": 1,
+        "difficulty": "mudah",
+        "tahun": 2025,
+        "score": 1.0,
+        "subject": { "name": "Matematika SMA" },
+        "passage": null,
+        "options": [
+            { "kode_opsi": "OPT-001-xxx", "option_number": 1, "content": "<p>12</p>" },
+            { "kode_opsi": "OPT-002-xxx", "option_number": 2, "content": "<p>20</p>" },
+            { "kode_opsi": "OPT-003-xxx", "option_number": 3, "content": "<p>25</p>" },
+            { "kode_opsi": "OPT-004-xxx", "option_number": 4, "content": "<p>30</p>" },
+            { "kode_opsi": "OPT-005-xxx", "option_number": 5, "content": "<p>49</p>" }
+        ]
+    }
+}
+```
+
+**Response 422 — Jawaban Benar Tidak Sesuai Pilihan**
+```json
+{
+    "statusCode": 422,
+    "message": "Validasi gagal",
+    "errors": {
+        "correct_answer": ["Jawaban benar harus sesuai dengan salah satu nomor pilihan yang ada"]
+    }
+}
+```
+
+**Response 422 — Kirim Passage Ganda**
+```json
+{
+    "statusCode": 422,
+    "message": "Validasi gagal",
+    "errors": {
+        "passage": ["Tidak bisa kirim kode_passage dan passage baru sekaligus, pilih salah satu"]
+    }
+}
+```
+
+---
+
+## 4. GET /api/questions/{kode_soal}
+
+Detail satu soal. `correct_answer` dan `discussion` **tidak ikut** di response ini — sengaja disembunyikan agar tidak bocor ke user saat ujian berlangsung.
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Detail soal berhasil diambil",
+    "data": {
+        "kode_soal": "SOA-001-xxx",
+        "question": "<p>Hasil dari 3² + 4² adalah...</p>",
+        "type": 1,
+        "difficulty": "mudah",
+        "tahun": 2025,
+        "subject": { "name": "Matematika SMA" },
+        "passage": null,
+        "options": [...]
+    }
+}
+```
+
+---
+
+## 5. GET /api/questions/{kode_soal}/answer
+
+Detail soal **beserta** `correct_answer` dan `discussion`. Khusus admin, atau dipakai oleh frontend saat menampilkan halaman pembahasan setelah sesi ujian selesai.
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Detail soal dengan jawaban berhasil diambil",
+    "data": {
+        "kode_soal": "SOA-001-xxx",
+        "question": "<p>Hasil dari 3² + 4² adalah...</p>",
+        "correct_answer": 3,
+        "discussion": "<p>3²=9, 4²=16, maka 9+16=<strong>25</strong>.</p>",
+        "difficulty": "mudah",
+        "options": [
+            { "option_number": 1, "content": "<p>12</p>" },
+            { "option_number": 2, "content": "<p>20</p>" },
+            { "option_number": 3, "content": "<p>25</p>" },
+            { "option_number": 4, "content": "<p>30</p>" },
+            { "option_number": 5, "content": "<p>49</p>" }
+        ]
+    }
+}
+```
+
+---
+
+## 6. PUT /api/questions/{kode_soal}
+
+Update soal. Semua field bersifat `sometimes`. Jika `options` dikirim → **semua pilihan lama dihapus** dan diganti dengan pilihan baru yang dikirim.
+
+---
+
+## 7. PATCH /api/questions/{kode_soal}/update
+
+Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk koreksi kecil tanpa mengubah pilihan jawaban.
+
+**Contoh — koreksi jawaban benar saja**
+```json
+{ "correct_answer": 3 }
+```
+
+**Contoh — update tahun dan chapter**
+```json
+{ "tahun": 2026, "chapter": "Fungsi Kuadrat" }
+```
+
+**Contoh — update tingkat kesulitan**
+```json
+{ "difficulty": "sulit" }
+```
+
+**Contoh — lepas dari bacaan (jadikan soal mandiri)**
+```json
+{ "kode_passage": null }
+```
+
+---
+
+## 8. DELETE /api/questions/{kode_soal}
+
+Hapus soal. Pilihan jawaban ikut terhapus otomatis (cascade di database).
+
+**Response 200 — Berhasil Dihapus**
+```json
+{
+    "statusCode": 200,
+    "message": "Soal berhasil dihapus",
+    "data": null
+}
+```
+
+---
+
+## 9. DELETE /api/questions/bulk-delete
+
+Hapus banyak soal sekaligus berdasarkan kriteria. Wajib kirim minimal 1 kriteria. Pilihan jawaban ikut terhapus otomatis (cascade).
+
+> Sangat berguna untuk admin yang ingin **membersihkan soal lama per tahun**
+> tanpa perlu hapus satu-satu.
+
+**Body Request**
+
+| Field | Tipe | Keterangan |
+|-------|------|------------|
+| `kode_soal` | array of string | Hapus soal spesifik by kode |
+| `kode_subject` | string | Hapus semua soal mapel tertentu |
+| `tahun` | integer | Hapus semua soal tahun tertentu |
+
+> Kriteria bisa dikombinasikan:
+> `{ "kode_subject": "SUB-001-xxx", "tahun": 2023 }` = hapus soal Matematika tahun 2023 saja
+
+**Contoh — hapus soal tahun lama**
+```json
+{ "tahun": 2023 }
+```
+
+**Contoh — hapus soal mapel + tahun tertentu**
+```json
+{
+    "kode_subject": "SUB-001-250515090000",
+    "tahun": 2023
+}
+```
+
+**Contoh — hapus soal spesifik**
+```json
+{
+    "kode_soal": ["SOA-001-xxx", "SOA-002-xxx", "SOA-005-xxx"]
+}
+```
+
+**Response 200 — Berhasil Dihapus**
+```json
+{
+    "statusCode": 200,
+    "message": "45 soal berhasil dihapus",
+    "data": null
+}
+```
+
+**Response 422 — Tidak Ada Kriteria**
+```json
+{
+    "statusCode": 422,
+    "message": "Validasi gagal",
+    "errors": {
+        "field": ["Wajib kirim salah satu: kode_soal, kode_subject, atau tahun"]
+    }
+}
+```
+
+---
+
+## Ringkasan Status Code
+
+| Code | Keterangan |
+|------|------------|
+| `200` | Berhasil |
+| `201` | Soal berhasil dibuat |
+| `401` | Tidak terautentikasi |
+| `403` | Tidak punya akses |
+| `404` | Soal tidak ditemukan |
+| `422` | Validasi gagal |
+| `500` | Server error |
