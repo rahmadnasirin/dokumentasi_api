@@ -10,7 +10,7 @@
 
 ### `subjects_categories`
 ```sql
-Schema::create('subjects_categories', function (Blueprint $table) {
+Schema::create('categories', function (Blueprint $table) {
     $table->string('kode_kategori')->primary(); // CAT-001-250515090000
     $table->string('name');                     // "TKD", "TKA Saintek", "TKA Soshum"
     $table->string('slug')->unique();           // "tkd", "tka-saintek", "tka-soshum"
