@@ -14,11 +14,34 @@
 | POST | `/api/subjects` | Tambah mata pelajaran baru |
 | GET | `/api/subjects/{kode_subject}` | Detail satu mata pelajaran |
 | PUT | `/api/subjects/{kode_subject}` | Update semua field |
-| PATCH | `/api/subjects/{kode_subject}/update` | Update sebagian field |
 | DELETE | `/api/subjects/{kode_subject}` | Hapus mata pelajaran |
+| PATCH | `/api/subjects/{kode_subject}/update` | Update sebagian field |
 
 > **Catatan:** Untuk dropdown pilihan kategori di frontend, gunakan endpoint
 > `GET /api/subjects-categories` yang sudah tersedia di modul Subjects Categories.
+
+---
+
+## Schema Database
+
+```sql
+subjects
+├── kode_subject   STRING  PRIMARY KEY           -- format: SUB-001-250515090000
+├── kode_kategori  STRING  NULLABLE              -- null = mapel universal (bebas tanpa jalur)
+├── name           STRING  NOT NULL
+├── slug           STRING  UNIQUE NOT NULL
+├── icon           STRING  NULLABLE              -- nama icon untuk UI, misal: "calculator"
+├── color          STRING  NULLABLE              -- warna hex badge, misal: "#3B82F6"
+├── is_active      BOOLEAN DEFAULT true          -- false = disembunyikan dari user
+├── created_at     TIMESTAMP
+└── updated_at     TIMESTAMP
+
+FOREIGN KEY kode_kategori → categories(kode_kategori) ON DELETE SET NULL
+```
+
+> **Catatan:** Foreign key `kode_kategori` merujuk ke tabel `categories`.
+> Validasi di layer controller menggunakan tabel `subjects_categories`
+> — pastikan keduanya merujuk tabel yang sama di environment masing-masing.
 
 ---
 
@@ -30,7 +53,7 @@ Semua endpoint menggunakan format respon yang konsisten:
 {
     "statusCode": 200,
     "message": "Pesan respon",
-    "data": { }
+    "data": {}
 }
 ```
 
@@ -49,8 +72,8 @@ Authorization: Bearer {token}
 
 | Parameter | Tipe | Keterangan |
 |-----------|------|------------|
-| `kode_kategori` | string | Filter by kode kategori |
-| `is_active` | boolean (0/1) | Filter by status aktif |
+| `kode_kategori` | string | Filter berdasarkan kode kategori |
+| `is_active` | boolean (0/1) | Filter berdasarkan status aktif |
 
 **Contoh Request**
 ```
@@ -101,7 +124,7 @@ GET /api/subjects?kode_kategori=CAT-001-250515090000&is_active=1
 ```
 
 > **Catatan `kode_kategori: null`** — mata pelajaran universal (tidak masuk kategori TKD/TKA/dll),
-> bebas diakses tanpa jalur khusus.
+> bebas diakses tanpa jalur khusus. Field `category` akan bernilai `null`.
 
 **Response 500 — Server Error**
 ```json
@@ -116,7 +139,7 @@ GET /api/subjects?kode_kategori=CAT-001-250515090000&is_active=1
 
 ## 2. POST /api/subjects
 
-Menambahkan mata pelajaran baru. `kode_subject` di-generate otomatis oleh server, **frontend tidak perlu mengirim kode**. Slug di-generate otomatis dari `name` dan jika sudah ada akan diberi suffix `-1`, `-2`, dst.
+Menambahkan mata pelajaran baru. `kode_subject` di-generate otomatis oleh server — **frontend tidak perlu mengirim kode**. Slug di-generate otomatis dari `name`, dan jika sudah ada akan diberi suffix `-1`, `-2`, dst.
 
 **Headers**
 ```
@@ -129,9 +152,9 @@ Content-Type: application/json
 | Field | Tipe | Wajib | Keterangan |
 |-------|------|-------|------------|
 | `name` | string, max:100 | ✅ Ya | Nama mata pelajaran |
-| `kode_kategori` | string | ❌ Opsional | Kode kategori dari `/api/subjects-categories`. Kosongkan jika mapel universal |
-| `slug` | string, max:100 | ❌ Opsional | Jika kosong, di-generate otomatis dari `name` |
-| `icon` | string, max:50 | ❌ Opsional | Nama icon (contoh: `calculator`, `book`, `flask`) |
+| `kode_kategori` | string \| null | ❌ Opsional | Kode kategori dari `/api/subjects-categories`. Kosongkan jika mapel universal |
+| `slug` | string, max:100 | ❌ Opsional | Jika kosong, di-generate otomatis dari `name`. Harus unik jika diisi manual |
+| `icon` | string, max:50 | ❌ Opsional | Nama icon untuk UI (contoh: `calculator`, `book`, `flask`) |
 | `color` | string, max:7 | ❌ Opsional | Warna hex badge (contoh: `#3B82F6`) |
 | `is_active` | boolean | ❌ Opsional | Default `true` jika tidak diisi |
 
@@ -209,15 +232,15 @@ Content-Type: application/json
 }
 ```
 
-> **Catatan generate kode:**
+> **Catatan generate `kode_subject`:**
 > Format `SUB-006-250515143022` terdiri dari:
-> - `SUB` = prefix tabel
-> - `006` = nomor sequential dari kode terakhir di database (increment +1)
-> - `250515143022` = timestamp saat data dibuat (format `ymdhis`)
+> - `SUB` — prefix tabel
+> - `006` — nomor sequential dari kode terakhir di database (increment +1, zero-padded 3 digit)
+> - `250515143022` — timestamp saat data dibuat (format `ymdhis`)
 >
-> **Catatan generate slug:**
-> Jika `name = "Matematika"` dan slug `matematika` sudah ada di database,
-> maka sistem otomatis mencoba `matematika-1`, `matematika-2`, dst hingga menemukan yang unik.
+> **Catatan generate `slug`:**
+> Jika `name = "Matematika"` dan slug `matematika` sudah ada, sistem otomatis mencoba
+> `matematika-1`, `matematika-2`, dst hingga menemukan yang unik.
 
 ---
 
@@ -271,6 +294,15 @@ Authorization: Bearer {token}
 }
 ```
 
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Gagal mengambil detail mata pelajaran",
+    "data": null
+}
+```
+
 ---
 
 ## 4. PUT /api/subjects/{kode_subject}
@@ -293,11 +325,11 @@ Content-Type: application/json
 
 | Field | Tipe | Wajib | Keterangan |
 |-------|------|-------|------------|
-| `kode_kategori` | string / null | ❌ Opsional | Set `null` untuk jadikan mapel universal |
-| `name` | string, max:100 | ❌ Opsional | Slug otomatis di-regenerate jika `name` diubah |
-| `slug` | string, max:100 | ❌ Opsional | Jika diisi manual, harus unik |
-| `icon` | string, max:50 | ❌ Opsional | |
-| `color` | string, max:7 | ❌ Opsional | Format hex: `#RRGGBB` |
+| `kode_kategori` | string \| null | ❌ Opsional | Set `null` untuk jadikan mapel universal |
+| `name` | string, max:100 | ❌ Opsional | Jika diubah, slug di-regenerate otomatis |
+| `slug` | string, max:100 | ❌ Opsional | Jika diisi manual, harus unik (kecuali milik diri sendiri) |
+| `icon` | string \| null, max:50 | ❌ Opsional | |
+| `color` | string \| null, max:7 | ❌ Opsional | Format hex: `#RRGGBB` |
 | `is_active` | boolean | ❌ Opsional | `true` = aktif, `false` = nonaktif |
 
 **Contoh Request — Nonaktifkan mapel**
@@ -363,6 +395,15 @@ Content-Type: application/json
 }
 ```
 
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Mata pelajaran gagal diperbarui",
+    "data": null
+}
+```
+
 ---
 
 ## 5. DELETE /api/subjects/{kode_subject}
@@ -416,18 +457,17 @@ Authorization: Bearer {token}
 }
 ```
 
-
 ---
 
 ## 6. PATCH /api/subjects/{kode_subject}/update
 
-Update **sebagian field saja** (partial update). Cocok untuk perubahan kecil seperti toggle aktif/nonaktif, ganti warna, atau pindah kategori tanpa perlu mengirim semua field. Minimal harus ada 1 field yang dikirim.
+Update **sebagian field saja** (partial update). Minimal harus ada 1 field yang dikirim.
 
 **Kapan pakai `PATCH` vs `PUT`?**
 
 | Skenario | Gunakan |
 |----------|---------|
-| Nonaktifkan/aktifkan mapel | `PATCH` |
+| Nonaktifkan / aktifkan mapel | `PATCH` |
 | Ganti warna atau ikon saja | `PATCH` |
 | Pindah kategori saja | `PATCH` |
 | Update semua field sekaligus | `PUT` |
@@ -448,21 +488,21 @@ Content-Type: application/json
 
 | Field | Tipe | Keterangan |
 |-------|------|------------|
-| `kode_kategori` | string / null | `null` = jadikan mapel universal |
+| `kode_kategori` | string \| null | `null` = jadikan mapel universal |
 | `name` | string, max:100 | Jika diisi, slug di-regenerate otomatis |
-| `slug` | string, max:100 | |
-| `icon` | string / null | Nama icon |
-| `color` | string / null | Format hex: `#RRGGBB` |
+| `slug` | string, max:100 | Harus unik (kecuali milik diri sendiri) |
+| `icon` | string \| null, max:50 | Nama icon |
+| `color` | string \| null, max:7 | Format hex: `#RRGGBB` |
 | `is_active` | boolean | `true` = aktif, `false` = nonaktif |
 
-**Contoh Request — nonaktifkan mapel**
+**Contoh Request — Nonaktifkan mapel**
 ```json
 {
     "is_active": false
 }
 ```
 
-**Contoh Request — ganti warna dan ikon saja**
+**Contoh Request — Ganti warna dan ikon saja**
 ```json
 {
     "color": "#EF4444",
@@ -470,7 +510,7 @@ Content-Type: application/json
 }
 ```
 
-**Contoh Request — pindah kategori**
+**Contoh Request — Pindah kategori**
 ```json
 {
     "kode_kategori": "CAT-003-250515090000"
@@ -519,6 +559,15 @@ Content-Type: application/json
 {
     "statusCode": 404,
     "message": "Mata pelajaran tidak ditemukan",
+    "data": null
+}
+```
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Mata pelajaran gagal diperbarui",
     "data": null
 }
 ```
