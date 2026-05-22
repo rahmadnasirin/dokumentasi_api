@@ -29,6 +29,8 @@ subjects
 ├── kode_subject   STRING  PRIMARY KEY           -- format: SUB-001-250515090000
 ├── kode_kategori  STRING  NULLABLE              -- null = mapel universal (bebas tanpa jalur)
 ├── name           STRING  NOT NULL
+├── sumber_soal    STRING  NOT NULL              -- sumber/penerbit soal
+├── tahun          STRING  NOT NULL              -- tahun soal, contoh: "2024"
 ├── slug           STRING  UNIQUE NOT NULL
 ├── icon           STRING  NULLABLE              -- nama icon untuk UI, misal: "calculator"
 ├── color          STRING  NULLABLE              -- warna hex badge, misal: "#3B82F6"
@@ -74,13 +76,17 @@ Authorization: Bearer {token}
 |-----------|------|------------|
 | `kode_kategori` | string | Filter berdasarkan kode kategori |
 | `is_active` | boolean (0/1) | Filter berdasarkan status aktif |
+| `sumber_soal` | string | Filter berdasarkan sumber soal |
+| `tahun` | string | Filter berdasarkan tahun soal |
 
 **Contoh Request**
 ```
 GET /api/subjects
 GET /api/subjects?kode_kategori=CAT-001-250515090000
 GET /api/subjects?is_active=1
-GET /api/subjects?kode_kategori=CAT-001-250515090000&is_active=1
+GET /api/subjects?sumber_soal=Kemendikbud
+GET /api/subjects?tahun=2024
+GET /api/subjects?kode_kategori=CAT-001-250515090000&is_active=1&tahun=2024
 ```
 
 **Response 200 — Berhasil**
@@ -93,6 +99,8 @@ GET /api/subjects?kode_kategori=CAT-001-250515090000&is_active=1
             "kode_subject": "SUB-001-250515090000",
             "kode_kategori": null,
             "name": "Matematika SMA",
+            "sumber_soal": "Kemendikbud",
+            "tahun": "2024",
             "slug": "matematika-sma",
             "icon": "calculator",
             "color": "#3B82F6",
@@ -105,6 +113,8 @@ GET /api/subjects?kode_kategori=CAT-001-250515090000&is_active=1
             "kode_subject": "SUB-005-250515090100",
             "kode_kategori": "CAT-001-250515090000",
             "name": "Matematika Dasar",
+            "sumber_soal": "LTMPT",
+            "tahun": "2023",
             "slug": "matematika-dasar",
             "icon": "calculator",
             "color": "#3B82F6",
@@ -152,6 +162,8 @@ Content-Type: application/json
 | Field | Tipe | Wajib | Keterangan |
 |-------|------|-------|------------|
 | `name` | string, max:100 | ✅ Ya | Nama mata pelajaran |
+| `sumber_soal` | string, max:100 | ✅ Ya | Sumber/penerbit soal |
+| `tahun` | string, max:4 | ✅ Ya | Tahun soal, contoh: `2024` |
 | `kode_kategori` | string \| null | ❌ Opsional | Kode kategori dari `/api/subjects-categories`. Kosongkan jika mapel universal |
 | `slug` | string, max:100 | ❌ Opsional | Jika kosong, di-generate otomatis dari `name`. Harus unik jika diisi manual |
 | `icon` | string, max:50 | ❌ Opsional | Nama icon untuk UI (contoh: `calculator`, `book`, `flask`) |
@@ -162,6 +174,8 @@ Content-Type: application/json
 ```json
 {
     "name": "Kimia SMA",
+    "sumber_soal": "Kemendikbud",
+    "tahun": "2024",
     "icon": "flask",
     "color": "#10B981"
 }
@@ -172,6 +186,8 @@ Content-Type: application/json
 {
     "kode_kategori": "CAT-002-250515090000",
     "name": "Fisika",
+    "sumber_soal": "LTMPT",
+    "tahun": "2023",
     "icon": "atom",
     "color": "#F59E0B",
     "is_active": true
@@ -187,6 +203,8 @@ Content-Type: application/json
         "kode_subject": "SUB-006-250515143022",
         "kode_kategori": "CAT-002-250515090000",
         "name": "Fisika",
+        "sumber_soal": "LTMPT",
+        "tahun": "2023",
         "slug": "fisika",
         "icon": "atom",
         "color": "#F59E0B",
@@ -212,6 +230,12 @@ Content-Type: application/json
     "errors": {
         "name": [
             "The name field is required."
+        ],
+        "sumber_soal": [
+            "The sumber soal field is required."
+        ],
+        "tahun": [
+            "The tahun field is required."
         ],
         "kode_kategori": [
             "The selected kode kategori is invalid."
@@ -268,6 +292,8 @@ Authorization: Bearer {token}
         "kode_subject": "SUB-005-250515090100",
         "kode_kategori": "CAT-001-250515090000",
         "name": "Matematika Dasar",
+        "sumber_soal": "LTMPT",
+        "tahun": "2023",
         "slug": "matematika-dasar",
         "icon": "calculator",
         "color": "#3B82F6",
@@ -327,6 +353,8 @@ Content-Type: application/json
 |-------|------|-------|------------|
 | `kode_kategori` | string \| null | ❌ Opsional | Set `null` untuk jadikan mapel universal |
 | `name` | string, max:100 | ❌ Opsional | Jika diubah, slug di-regenerate otomatis |
+| `sumber_soal` | string, max:100 | ❌ Opsional | Sumber/penerbit soal |
+| `tahun` | string, max:4 | ❌ Opsional | Tahun soal, contoh: `2024` |
 | `slug` | string, max:100 | ❌ Opsional | Jika diisi manual, harus unik (kecuali milik diri sendiri) |
 | `icon` | string \| null, max:50 | ❌ Opsional | |
 | `color` | string \| null, max:7 | ❌ Opsional | Format hex: `#RRGGBB` |
@@ -339,11 +367,13 @@ Content-Type: application/json
 }
 ```
 
-**Contoh Request — Pindah kategori + ganti nama**
+**Contoh Request — Pindah kategori + ganti nama + update sumber**
 ```json
 {
     "kode_kategori": "CAT-003-250515090000",
-    "name": "Sejarah Indonesia"
+    "name": "Sejarah Indonesia",
+    "sumber_soal": "Kemendikbud",
+    "tahun": "2024"
 }
 ```
 
@@ -356,6 +386,8 @@ Content-Type: application/json
         "kode_subject": "SUB-012-250515090000",
         "kode_kategori": "CAT-003-250515090000",
         "name": "Sejarah Indonesia",
+        "sumber_soal": "Kemendikbud",
+        "tahun": "2024",
         "slug": "sejarah-indonesia",
         "icon": "clock",
         "color": "#78716C",
@@ -470,6 +502,7 @@ Update **sebagian field saja** (partial update). Minimal harus ada 1 field yang 
 | Nonaktifkan / aktifkan mapel | `PATCH` |
 | Ganti warna atau ikon saja | `PATCH` |
 | Pindah kategori saja | `PATCH` |
+| Ganti sumber soal atau tahun saja | `PATCH` |
 | Update semua field sekaligus | `PUT` |
 
 **Headers**
@@ -490,6 +523,8 @@ Content-Type: application/json
 |-------|------|------------|
 | `kode_kategori` | string \| null | `null` = jadikan mapel universal |
 | `name` | string, max:100 | Jika diisi, slug di-regenerate otomatis |
+| `sumber_soal` | string, max:100 | Sumber/penerbit soal |
+| `tahun` | string, max:4 | Tahun soal, contoh: `2024` |
 | `slug` | string, max:100 | Harus unik (kecuali milik diri sendiri) |
 | `icon` | string \| null, max:50 | Nama icon |
 | `color` | string \| null, max:7 | Format hex: `#RRGGBB` |
@@ -510,6 +545,14 @@ Content-Type: application/json
 }
 ```
 
+**Contoh Request — Update sumber soal dan tahun**
+```json
+{
+    "sumber_soal": "SNPMB",
+    "tahun": "2025"
+}
+```
+
 **Contoh Request — Pindah kategori**
 ```json
 {
@@ -526,6 +569,8 @@ Content-Type: application/json
         "kode_subject": "SUB-005-250515090100",
         "kode_kategori": "CAT-001-250515090000",
         "name": "Matematika Dasar",
+        "sumber_soal": "SNPMB",
+        "tahun": "2025",
         "slug": "matematika-dasar",
         "icon": "calculator",
         "color": "#EF4444",
