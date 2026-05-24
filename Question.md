@@ -39,6 +39,7 @@ saat ujian mulai:
 |--------|----------|--------|
 | GET | `/api/questions` | Ambil bank soal dengan pagination |
 | GET | `/api/questions/passages` | Daftar teks bacaan (untuk dropdown di form soal) |
+| GET | `/api/questions/subject/{kode_subject}` | Ambil soal berdasarkan mata pelajaran |
 | POST | `/api/questions` | Buat soal + pilihan jawaban + passage sekaligus |
 | GET | `/api/questions/{kode_soal}` | Detail soal (tanpa jawaban benar) |
 | GET | `/api/questions/{kode_soal}/answer` | Detail soal + jawaban benar (admin only) |
@@ -47,8 +48,23 @@ saat ujian mulai:
 | DELETE | `/api/questions/{kode_soal}` | Hapus soal |
 | DELETE | `/api/questions/bulk-delete` | Hapus banyak soal sekaligus |
 
-> **Urutan endpoint penting!** `passages` dan `bulk-delete` harus dipanggil
-> sebelum `{kode_soal}` agar tidak dianggap sebagai parameter.
+> **Urutan route penting!** `passages`, `subject/{kode_subject}`, dan `bulk-delete`
+> harus didefinisikan **sebelum** `{kode_soal}` agar tidak dianggap sebagai parameter dinamis.
+
+**Contoh urutan route yang benar di `routes/api.php`:**
+```php
+/* QUESTION */
+Route::get('questions/passages',                    [QuestionController::class, 'getPassages']);
+Route::get('questions/subject/{kode_subject}',      [QuestionController::class, 'getSubject']);
+Route::delete('questions/bulk-delete',              [QuestionController::class, 'bulkDelete']);
+Route::get('questions',                             [QuestionController::class, 'index']);
+Route::post('questions',                            [QuestionController::class, 'store']);
+Route::get('questions/{kode_soal}',                 [QuestionController::class, 'show']);
+Route::get('questions/{kode_soal}/answer',          [QuestionController::class, 'showAnswer']);
+Route::put('questions/{kode_soal}',                 [QuestionController::class, 'update']);
+Route::patch('questions/{kode_soal}/update',        [QuestionController::class, 'editData']);
+Route::delete('questions/{kode_soal}',              [QuestionController::class, 'destroy']);
+```
 
 ---
 
@@ -238,7 +254,127 @@ GET /api/questions/passages?kode_subject=SUB-002-xxx
 
 ---
 
-## 3. POST /api/questions
+## 3. GET /api/questions/subject/{kode_subject}
+
+Ambil semua soal berdasarkan mata pelajaran tertentu, dengan pagination. Cocok digunakan untuk halaman **bank soal per mapel**, preview soal sebelum paket dibuat, atau manajemen soal dari sisi admin mapel.
+
+Relasi `passage` dan `options` sudah disertakan. Relasi `subject` **tidak disertakan** karena sudah diketahui dari parameter URL.
+
+> `correct_answer` dan `discussion` **tidak ikut** di response ini.
+
+**URL Parameter**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_subject` | *(wajib)* Kode mata pelajaran yang ingin diambil soalnya |
+
+**Query Parameters** *(semua opsional)*
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `type` | `1` = pilihan ganda, `2` = esai |
+| `difficulty` | `mudah` `sedang` `sulit` |
+| `tahun` | Filter by tahun soal |
+| `chapter` | Filter by bab/topik |
+| `per_page` | Jumlah per halaman, default `20` |
+
+**Contoh Request**
+```
+GET /api/questions/subject/SUB-001-xxx
+GET /api/questions/subject/SUB-001-xxx?difficulty=mudah
+GET /api/questions/subject/SUB-001-xxx?type=1&tahun=2025&per_page=10
+GET /api/questions/subject/SUB-002-xxx?chapter=Aljabar&per_page=50
+```
+
+**Perbedaan dengan `GET /api/questions`**
+
+| | `GET /api/questions` | `GET /api/questions/subject/{kode_subject}` |
+|---|---|---|
+| Filter mapel | Query param `?kode_subject=` | URL param (wajib) |
+| Relasi `subject` | ✅ Disertakan | ❌ Tidak disertakan (redundant) |
+| Hasil kosong | Kembalikan list kosong | Return `404` |
+| Use case | List semua soal lintas mapel | Fokus soal satu mapel |
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Daftar soal berhasil diambil",
+    "data": {
+        "list": [
+            {
+                "kode_soal": "SOA-001-250515143022",
+                "kode_subject": "SUB-001-xxx",
+                "kode_passage": null,
+                "seq": 1,
+                "chapter": "Aljabar",
+                "question": "<p>Hasil dari 3² + 4² adalah...</p>",
+                "url_file": null,
+                "score": 1.0,
+                "type": 1,
+                "difficulty": "mudah",
+                "tahun": 2025,
+                "passage": null,
+                "options": [
+                    { "option_number": 1, "content": "<p>12</p>" },
+                    { "option_number": 2, "content": "<p>20</p>" },
+                    { "option_number": 3, "content": "<p>25</p>" },
+                    { "option_number": 4, "content": "<p>30</p>" },
+                    { "option_number": 5, "content": "<p>49</p>" }
+                ]
+            },
+            {
+                "kode_soal": "SOA-002-250515143045",
+                "kode_subject": "SUB-001-xxx",
+                "kode_passage": "PAS-001-250515143022",
+                "seq": 2,
+                "chapter": "Geometri",
+                "question": "<p>Luas segitiga dengan alas 6 dan tinggi 4 adalah...</p>",
+                "url_file": null,
+                "score": 1.0,
+                "type": 1,
+                "difficulty": "sedang",
+                "tahun": 2025,
+                "passage": {
+                    "kode_passage": "PAS-001-250515143022",
+                    "title": "Bacalah teks berikut",
+                    "content": "<p>Sebuah taman berbentuk segitiga...</p>",
+                    "seq": 1
+                },
+                "options": [
+                    { "option_number": 1, "content": "<p>10</p>" },
+                    { "option_number": 2, "content": "<p>12</p>" },
+                    { "option_number": 3, "content": "<p>14</p>" },
+                    { "option_number": 4, "content": "<p>16</p>" },
+                    { "option_number": 5, "content": "<p>24</p>" }
+                ]
+            }
+        ],
+        "pagination": {
+            "total": 85,
+            "perPage": 20,
+            "currentPage": 1,
+            "lastPage": 5,
+            "from": 1,
+            "to": 20,
+            "hasMorePages": true
+        }
+    }
+}
+```
+
+**Response 404 — Tidak Ada Soal**
+```json
+{
+    "statusCode": 404,
+    "message": "Soal untuk subject ini tidak ditemukan",
+    "data": null
+}
+```
+
+---
+
+## 4. POST /api/questions
 
 Buat soal baru. Dalam **satu request** bisa sekaligus:
 - Buat soal utama
@@ -417,7 +553,7 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
 
 ---
 
-## 4. GET /api/questions/{kode_soal}
+## 5. GET /api/questions/{kode_soal}
 
 Detail satu soal. `correct_answer` dan `discussion` **tidak ikut** di response ini — sengaja disembunyikan agar tidak bocor ke user saat ujian berlangsung.
 
@@ -441,7 +577,7 @@ Detail satu soal. `correct_answer` dan `discussion` **tidak ikut** di response i
 
 ---
 
-## 5. GET /api/questions/{kode_soal}/answer
+## 6. GET /api/questions/{kode_soal}/answer
 
 Detail soal **beserta** `correct_answer` dan `discussion`. Khusus admin, atau dipakai oleh frontend saat menampilkan halaman pembahasan setelah sesi ujian selesai.
 
@@ -469,7 +605,7 @@ Detail soal **beserta** `correct_answer` dan `discussion`. Khusus admin, atau di
 
 ---
 
-## 6. PUT /api/questions/{kode_soal}
+## 7. PUT /api/questions/{kode_soal}
 
 Update soal. Semua field bersifat `sometimes`. Jika `options` dikirim → **semua pilihan lama dihapus** dan diganti dengan pilihan baru yang dikirim.
 
@@ -512,7 +648,7 @@ Update soal. Semua field bersifat `sometimes`. Jika `options` dikirim → **semu
 
 ---
 
-## 7. PATCH /api/questions/{kode_soal}/update
+## 8. PATCH /api/questions/{kode_soal}/update
 
 Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk koreksi kecil tanpa mengubah pilihan jawaban.
 
@@ -538,7 +674,7 @@ Update **sebagian field** saja. Minimal 1 field harus dikirim. Cocok untuk korek
 
 ---
 
-## 8. DELETE /api/questions/{kode_soal}
+## 9. DELETE /api/questions/{kode_soal}
 
 Hapus soal. Pilihan jawaban ikut terhapus otomatis (cascade di database).
 
@@ -553,7 +689,7 @@ Hapus soal. Pilihan jawaban ikut terhapus otomatis (cascade di database).
 
 ---
 
-## 9. DELETE /api/questions/bulk-delete
+## 10. DELETE /api/questions/bulk-delete
 
 Hapus banyak soal sekaligus berdasarkan kriteria. Wajib kirim minimal 1 kriteria. Pilihan jawaban ikut terhapus otomatis (cascade).
 
@@ -621,6 +757,6 @@ Hapus banyak soal sekaligus berdasarkan kriteria. Wajib kirim minimal 1 kriteria
 | `201` | Soal berhasil dibuat |
 | `401` | Tidak terautentikasi |
 | `403` | Tidak punya akses |
-| `404` | Soal tidak ditemukan |
+| `404` | Soal / subject tidak ditemukan |
 | `422` | Validasi gagal |
 | `500` | Server error |
