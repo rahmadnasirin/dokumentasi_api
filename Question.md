@@ -211,8 +211,9 @@ if (kode_passage && passage) {
 
 Ambil daftar teks bacaan untuk **dropdown pilih passage** di form input soal. Filter by `kode_subject` untuk tampilkan hanya bacaan mapel tertentu.
 
-> Panggil endpoint ini **sebelum** form input soal dibuka, agar dropdown
-> pilihan "pakai bacaan yang sudah ada" sudah ter-populate.
+> `title` digunakan sebagai label di dropdown. `description` adalah instruksi yang tampil
+> di atas soal saat ujian berlangsung (contoh: "Untuk soal nomor 1–3, bacalah teks berikut").
+> Panggil endpoint ini **sebelum** form input soal dibuka, agar dropdown sudah ter-populate.
 
 **Query Parameters**
 
@@ -234,7 +235,8 @@ GET /api/questions/passages?kode_subject=SUB-002-xxx
         {
             "kode_passage": "PAS-001-250515143022",
             "kode_subject": "SUB-002-xxx",
-            "title": "Untuk soal nomor 1-4, bacalah teks berikut",
+            "title": "Bacaan 1 — Pertanian",
+            "description": "Untuk soal nomor 1-3, bacalah teks berikut ini dengan seksama",
             "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan...</p>",
             "seq": 1,
             "created_at": "2025-05-15T14:30:22.000000Z",
@@ -272,14 +274,16 @@ Content-Type: application/json
 |-------|------|-------|------------|
 | `kode_subject` | string | ✅ | FK ke `subjects` |
 | `content` | string | ✅ | Isi teks bacaan (HTML dari rich text editor) |
-| `title` | string, max:255 | ❌ | Judul/keterangan bacaan, contoh: "Untuk soal nomor 1–3, bacalah teks berikut" |
+| `title` | string, max:255 | ❌ | Label singkat untuk dropdown/select di form soal. Contoh: "Bacaan 1", "Teks Ekosistem" |
+| `description` | string | ❌ | Instruksi yang tampil di atas soal saat ujian. Contoh: "Untuk soal nomor 1–3, bacalah teks berikut ini dengan seksama" |
 | `seq` | integer ≥ 1 | ❌ | Urutan passage dalam mapel. Default `1` |
 
 **Contoh Request**
 ```json
 {
     "kode_subject": "SUB-002-250515090000",
-    "title": "Untuk soal nomor 1-3, bacalah teks berikut",
+    "title": "Bacaan 1 — Pertanian",
+    "description": "Untuk soal nomor 1-3, bacalah teks berikut ini dengan seksama",
     "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan menyebabkan musim tanam menjadi tidak menentu...</p>",
     "seq": 1
 }
@@ -293,7 +297,8 @@ Content-Type: application/json
     "data": {
         "kode_passage": "PAS-001-250515143022",
         "kode_subject": "SUB-002-250515090000",
-        "title": "Untuk soal nomor 1-3, bacalah teks berikut",
+        "title": "Bacaan 1 — Pertanian",
+        "description": "Untuk soal nomor 1-3, bacalah teks berikut ini dengan seksama",
         "content": "<p>Di sebuah daerah pertanian...</p>",
         "seq": 1,
         "created_at": "2025-05-15T14:30:22.000000Z",
@@ -341,7 +346,8 @@ Detail satu passage beserta semua soal yang menggunakan passage ini.
     "data": {
         "kode_passage": "PAS-001-250515143022",
         "kode_subject": "SUB-002-xxx",
-        "title": "Untuk soal nomor 1-3, bacalah teks berikut",
+        "title": "Bacaan 1 — Pertanian",
+        "description": "Untuk soal nomor 1-3, bacalah teks berikut ini dengan seksama",
         "content": "<p>Di sebuah daerah pertanian...</p>",
         "seq": 1,
         "created_at": "2025-05-15T14:30:22.000000Z",
@@ -416,14 +422,16 @@ Content-Type: application/json
 | Field | Tipe | Keterangan |
 |-------|------|------------|
 | `kode_subject` | string | FK ke `subjects` |
-| `title` | string \| null, max:255 | Judul bacaan |
+| `title` | string \| null, max:255 | Label singkat untuk dropdown/select di form soal |
+| `description` | string \| null | Instruksi yang tampil di atas soal saat ujian |
 | `content` | string | Isi teks bacaan |
 | `seq` | integer ≥ 1 | Urutan |
 
 **Contoh Request**
 ```json
 {
-    "title": "Untuk soal nomor 1-4, bacalah teks berikut (revisi)",
+    "title": "Bacaan 1 — Pertanian (revisi)",
+    "description": "Untuk soal nomor 1-4, bacalah teks berikut ini dengan seksama",
     "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan yang ekstrem...</p>"
 }
 ```
@@ -436,7 +444,8 @@ Content-Type: application/json
     "data": {
         "kode_passage": "PAS-001-250515143022",
         "kode_subject": "SUB-002-xxx",
-        "title": "Untuk soal nomor 1-4, bacalah teks berikut (revisi)",
+        "title": "Bacaan 1 — Pertanian (revisi)",
+        "description": "Untuk soal nomor 1-4, bacalah teks berikut ini dengan seksama",
         "content": "<p>Di sebuah daerah pertanian...</p>",
         "seq": 1,
         "created_at": "2025-05-15T09:01:00.000000Z",
@@ -481,7 +490,8 @@ Content-Type: application/json
 | Field | Tipe | Keterangan |
 |-------|------|------------|
 | `kode_subject` | string | |
-| `title` | string \| null, max:255 | |
+| `title` | string \| null, max:255 | Label singkat untuk dropdown/select di form soal |
+| `description` | string \| null | Instruksi yang tampil di atas soal saat ujian |
 | `content` | string | |
 | `seq` | integer ≥ 1 | |
 
