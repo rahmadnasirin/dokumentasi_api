@@ -24,8 +24,8 @@ questions         ← soal di bank soal otomatis masuk pool
                      jika kode_subject sama → docs: api-questions.md
 ```
 
-> **Nested resource** — semua endpoint di modul ini selalu dalam konteks paket tertentu.
-> URL selalu diawali `/api/feature/{kode_feature}/package-subjects`.
+> **Nested resource** — semua endpoint di modul ini (kecuali endpoint pertama) selalu dalam konteks paket tertentu.
+> URL nested selalu diawali `/api/feature/{kode_feature}/package-subjects`.
 
 ---
 
@@ -33,7 +33,8 @@ questions         ← soal di bank soal otomatis masuk pool
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/api/feature/{kode_feature}/package-subjects` | Daftar semua slot dalam paket |
+| GET | `/api/package-subjects` | Daftar semua slot dari semua paket |
+| GET | `/api/feature/{kode_feature}/package-subjects` | Daftar semua slot dalam paket tertentu |
 | POST | `/api/feature/{kode_feature}/package-subjects` | Tambah slot kategori atau slot istirahat |
 | GET | `/api/feature/{kode_feature}/package-subjects/{kode_package_subject}` | Detail slot |
 | PUT | `/api/feature/{kode_feature}/package-subjects/{kode_package_subject}` | Update semua field |
@@ -102,9 +103,98 @@ Semua endpoint menggunakan format respon yang konsisten:
 
 ---
 
-## 1. GET /api/feature/{kode_feature}/package-subjects
+## 1. GET /api/package-subjects
 
-Ambil semua slot dalam paket tertentu, diurutkan berdasarkan `seq`. Termasuk slot istirahat. Response menyertakan data `category` beserta daftar mapel aktif di dalamnya.
+Ambil semua slot dari **seluruh paket** yang ada, diurutkan berdasarkan `kode_feature` kemudian `seq`. Response menyertakan relasi `feature` (paket induk) dan `category` beserta daftar mapel aktif di dalamnya.
+
+> Gunakan endpoint ini untuk keperluan admin yang membutuhkan tampilan lintas paket, misalnya dashboard ringkasan atau laporan global.
+> Untuk mengambil slot dalam satu paket tertentu, gunakan endpoint **#2** di bawah.
+
+**Headers**
+```
+Authorization: Bearer {token}
+```
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Daftar semua slot kategori berhasil diambil",
+    "data": [
+        {
+            "kode_package_subject": "PSUB-001-250515143022",
+            "name_package_subject": "Matematika Dasar",
+            "kode_feature": "PKG-001-xxx",
+            "kode_kategori": "CAT-001-xxx",
+            "is_break": false,
+            "sub_section": null,
+            "total_questions": 15,
+            "duration_minutes": 20,
+            "break_time_seconds": 30,
+            "passing_grade": 0,
+            "seq": 1,
+            "type": 1,
+            "created_at": "2025-05-15T14:30:22.000000Z",
+            "updated_at": "2025-05-15T14:30:22.000000Z",
+            "feature": {
+                "kode_feature": "PKG-001-xxx",
+                "name": "TO Mandiri Saintek Part 1"
+            },
+            "category": {
+                "kode_kategori": "CAT-001-xxx",
+                "name": "Tes Kemampuan Dasar",
+                "slug": "tkd",
+                "subjects": [
+                    {
+                        "kode_subject": "SUB-005-xxx",
+                        "name": "Matematika Dasar",
+                        "icon": "calculator",
+                        "color": "#3B82F6"
+                    }
+                ]
+            }
+        },
+        {
+            "kode_package_subject": "PSUB-002-250515143022",
+            "name_package_subject": "Istirahat",
+            "kode_feature": "PKG-001-xxx",
+            "kode_kategori": null,
+            "is_break": true,
+            "sub_section": null,
+            "total_questions": 0,
+            "duration_minutes": 1,
+            "break_time_seconds": 0,
+            "passing_grade": 0,
+            "seq": 2,
+            "type": 1,
+            "created_at": "2025-05-15T14:30:22.000000Z",
+            "updated_at": "2025-05-15T14:30:22.000000Z",
+            "feature": {
+                "kode_feature": "PKG-001-xxx",
+                "name": "TO Mandiri Saintek Part 1"
+            },
+            "category": null
+        }
+    ]
+}
+```
+
+> **Perbedaan dengan endpoint #2** — response di sini menyertakan relasi `feature` di setiap item karena data berasal dari berbagai paket sekaligus.
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Gagal mengambil semua data slot kategori",
+    "data": null
+}
+```
+
+---
+
+## 2. GET /api/feature/{kode_feature}/package-subjects
+
+Ambil semua slot dalam **paket tertentu**, diurutkan berdasarkan `seq`. Termasuk slot istirahat. Response menyertakan data `category` beserta daftar mapel aktif di dalamnya.
 
 **Headers**
 ```
@@ -196,7 +286,7 @@ Authorization: Bearer {token}
 
 ---
 
-## 2. POST /api/feature/{kode_feature}/package-subjects
+## 3. POST /api/feature/{kode_feature}/package-subjects
 
 Tambah slot kategori atau slot istirahat ke paket. `kode_package_subject` di-generate otomatis oleh server.
 
@@ -346,7 +436,7 @@ Content-Type: application/json
 
 ---
 
-## 3. GET /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
+## 4. GET /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
 
 Detail satu slot. Response menyertakan `total_soal_tersedia` — total soal aktif di bank soal untuk semua mapel dalam kategori slot ini.
 
@@ -431,7 +521,7 @@ Authorization: Bearer {token}
 
 ---
 
-## 4. PUT /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
+## 5. PUT /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
 
 Update data slot. Semua field bersifat `sometimes` — kirim hanya field yang ingin diubah.
 
@@ -541,7 +631,7 @@ Content-Type: application/json
 
 ---
 
-## 5. PATCH /api/feature/{kode_feature}/package-subjects/{kode_package_subject}/update
+## 6. PATCH /api/feature/{kode_feature}/package-subjects/{kode_package_subject}/update
 
 Update **sebagian field saja** (partial update). Minimal 1 field harus dikirim.
 
@@ -663,7 +753,7 @@ Content-Type: application/json
 
 ---
 
-## 6. DELETE /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
+## 7. DELETE /api/feature/{kode_feature}/package-subjects/{kode_package_subject}
 
 Hapus slot dari paket. **Gagal** jika slot ini sudah punya sesi ujian yang terikat (artinya sudah ada user yang pernah mengerjakan sub-sesi ini).
 
