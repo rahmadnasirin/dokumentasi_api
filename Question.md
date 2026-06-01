@@ -55,6 +55,7 @@ saat ujian mulai:
 /* PASSAGE — controller terpisah, tidak ada konflik wildcard */
 Route::get('passages',                         [PassageController::class, 'index']);
 Route::post('passages',                        [PassageController::class, 'store']);
+Route::get('passages/subject/{kode_subject}',  [PassageController::class, 'getBySubject']);
 Route::get('passages/{kode_passage}',          [PassageController::class, 'show']);
 Route::put('passages/{kode_passage}',          [PassageController::class, 'update']);
 Route::patch('passages/{kode_passage}/update', [PassageController::class, 'editData']);
@@ -87,10 +88,7 @@ Route::delete('questions/{kode_soal}',              [QuestionController::class, 
    body: { kode_passage: "PAS-001-xxx", seq: 2, ... }
 ```
 
-> Soal juga bisa membuat passage baru sekaligus dalam satu request dengan mengirim object `passage`.
-> Tapi cara ini hanya bisa dipakai untuk soal **pertama** dalam satu passage.
-> Soal berikutnya dalam passage yang sama wajib pakai `kode_passage`.
-> Tidak bisa mengirim `kode_passage` dan `passage` sekaligus dalam satu request.
+> Buat passage terlebih dahulu via `POST /api/passages`, lalu gunakan `kode_passage` yang dikembalikan saat membuat soal.
 
 ---
 
@@ -98,9 +96,9 @@ Route::delete('questions/{kode_soal}',              [QuestionController::class, 
 
 **Urutan load data sebelum form dibuka:**
 ```
-1. GET /api/subjects       → populate dropdown "Pilih Mapel"
-2. GET /api/passages       → populate dropdown "Pakai bacaan yang sudah ada"
-   (filter by kode_subject setelah mapel dipilih)
+1. GET /api/subjects                            → populate dropdown "Pilih Mapel"
+2. GET /api/passages/subject/{kode_subject}     → populate dropdown "Pakai bacaan yang sudah ada"
+   (dipanggil setelah mapel dipilih)
 ```
 
 **Struktur form berdasarkan type:**
@@ -109,7 +107,7 @@ Route::delete('questions/{kode_soal}',              [QuestionController::class, 
 
 [Teks Bacaan]          ← pilih salah satu:
   ○ Tidak ada (soal mandiri)
-  ○ Pakai yang sudah ada  ← dropdown hasil GET /api/passages?kode_subject=xxx
+  ○ Pakai yang sudah ada  ← dropdown hasil GET /api/passages/subject/{kode_subject}
                             label dropdown = passage.title
   ○ Buat baru             ← buat dulu via POST /api/passages,
                             lalu kirim kode_passage ke form soal
@@ -158,11 +156,6 @@ if (type == 1) {
 } else {
     // Kosongkan array options sebelum kirim (atau jangan kirim sama sekali)
     // Kosongkan correct_answer
-}
-
-// Validasi passage — tidak boleh kirim keduanya sekaligus
-if (kode_passage && passage) {
-    // Tampilkan error: pilih salah satu
 }
 ```
 
@@ -367,9 +360,12 @@ GET /api/questions/subject/SUB-001-xxx?type=1&tahun=2025&per_page=10
 Buat soal baru. Dalam **satu request** bisa sekaligus:
 - Buat soal utama
 - Buat pilihan jawaban A–E
-- Buat teks bacaan baru (opsional) ATAU pakai teks bacaan yang sudah ada
+- Hubungkan ke passage yang sudah ada via `kode_passage` (opsional)
 
 `kode_soal` di-generate otomatis dengan format `SOA-{sequential}-{timestamp}`.
+
+> Untuk soal yang menggunakan passage, buat passage terlebih dahulu via `POST /api/passages`,
+> lalu gunakan `kode_passage` yang dikembalikan di request ini.
 
 **Body Request**
 
@@ -382,19 +378,17 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
 | `options` | array | ✅* | Wajib jika `type=1`. Min 2, max 9 pilihan |
 | `options.*.option_number` | integer 1–9 | ✅ | Nomor pilihan (1=A, 2=B, 3=C, dst) |
 | `options.*.content` | string | ✅ | Isi pilihan jawaban (HTML) |
+| `kode_passage` | string | ❌ | Hubungkan ke teks bacaan yang sudah ada |
+| `seq` | integer ≥ 1 | ❌ | Urutan soal dalam kelompok passage |
 | `difficulty` | string | ❌ | `mudah` `sedang` `sulit`. Tampil sebagai badge di pembahasan |
 | `tahun` | integer 2000–2099 | ❌ | Tahun soal — berguna untuk filter hapus soal lama per tahun |
 | `chapter` | string, max:100 | ❌ | Bab atau topik soal |
 | `discussion` | string | ❌ | Pembahasan soal (HTML). Hanya tampil setelah sesi ujian selesai |
 | `score` | float | ❌ | Nilai jika menjawab benar. Default `1.0` |
+| `correct_answer_essay` | string | ❌ | Jawaban benar untuk soal esai (`type=2`) |
 | `url_file` | string | ❌ | Path lampiran gambar/file tambahan |
 | `url_video` | string | ❌ | Path lampiran video |
 | `url_pdf` | string | ❌ | Path lampiran PDF |
-| `kode_passage` | string | ❌* | Pakai teks bacaan yang sudah ada. **Tidak bisa bersamaan dengan `passage`** |
-| `passage` | object | ❌* | Buat teks bacaan baru sekaligus. **Tidak bisa bersamaan dengan `kode_passage`** |
-| `passage.content` | string | ✅* | Wajib jika `passage` dikirim. Isi teks bacaan (HTML) |
-| `passage.title` | string | ❌ | Judul bacaan |
-| `passage.seq` | integer | ❌ | Urutan bacaan. Default `1` |
 
 > **Catatan penting perbedaan type=1 dan type=2:**
 >
@@ -427,19 +421,17 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
 }
 ```
 
-**Skenario 2 — Soal dengan teks bacaan BARU (soal pertama dari kelompok)**
+**Skenario 2 — Soal dengan teks bacaan**
 ```json
 {
     "kode_subject": "SUB-002-xxx",
+    "kode_passage": "PAS-001-250515143022",
+    "seq": 1,
     "question": "<p>Simpulan yang paling tepat berdasarkan bacaan adalah...</p>",
     "type": 1,
     "correct_answer": 2,
     "difficulty": "sedang",
     "tahun": 2025,
-    "passage": {
-        "title": "Untuk soal nomor 1-3, bacalah teks berikut",
-        "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan menyebabkan musim tanam menjadi tidak menentu...</p>"
-    },
     "options": [
         { "option_number": 1, "content": "<p>Penurunan pendapatan disebabkan oleh kebijakan pemerintah</p>" },
         { "option_number": 2, "content": "<p>Perubahan curah hujan berkontribusi terhadap menurunnya pendapatan</p>" },
@@ -450,28 +442,7 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
 }
 ```
 
-**Skenario 3 — Soal dengan teks bacaan YANG SUDAH ADA (soal ke-2 dan seterusnya)**
-```json
-{
-    "kode_subject": "SUB-002-xxx",
-    "kode_passage": "PAS-001-250515143022",
-    "seq": 2,
-    "question": "<p>Mengapa pendapatan petani belum mengalami peningkatan yang berarti?</p>",
-    "type": 1,
-    "correct_answer": 4,
-    "difficulty": "sedang",
-    "tahun": 2025,
-    "options": [
-        { "option_number": 1, "content": "<p>Karena bantuan pupuk tidak diberikan tepat waktu</p>" },
-        { "option_number": 2, "content": "<p>Karena curah hujan terus meningkat</p>" },
-        { "option_number": 3, "content": "<p>Karena petani menolak bantuan pemerintah</p>" },
-        { "option_number": 4, "content": "<p>Karena pola curah hujan yang tidak menentu belum teratasi</p>" },
-        { "option_number": 5, "content": "<p>Karena bibit unggul tidak tersedia</p>" }
-    ]
-}
-```
-
-**Skenario 4 — Soal esai (type=2)**
+**Skenario 3 — Soal esai (type=2)**
 ```json
 {
     "kode_subject": "SUB-001-xxx",
@@ -523,17 +494,6 @@ Buat soal baru. Dalam **satu request** bisa sekaligus:
     "message": "Validasi gagal",
     "errors": {
         "correct_answer": ["Jawaban benar harus sesuai dengan salah satu nomor pilihan yang ada"]
-    }
-}
-```
-
-**Response 422 — Kirim Passage Ganda**
-```json
-{
-    "statusCode": 422,
-    "message": "Validasi gagal",
-    "errors": {
-        "passage": ["Tidak bisa kirim kode_passage dan passage baru sekaligus, pilih salah satu"]
     }
 }
 ```
