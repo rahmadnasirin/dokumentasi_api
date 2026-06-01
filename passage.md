@@ -34,7 +34,8 @@ questions     ← soal dihubungkan ke passage via kode_passage
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/api/passages` | Daftar semua passage (dengan filter) |
+| GET | `/api/passages` | Daftar semua passage (dengan filter query param) |
+| GET | `/api/passages/subject/{kode_subject}` | Daftar passage by subject (path param) |
 | POST | `/api/passages` | Buat passage baru |
 | GET | `/api/passages/{kode_passage}` | Detail passage beserta soal-soalnya |
 | PUT | `/api/passages/{kode_passage}` | Update semua field passage |
@@ -73,7 +74,7 @@ question_passages
 
 ## 1. GET /api/passages
 
-Ambil semua passage. Umumnya dipanggil dengan filter `kode_subject` untuk populate dropdown di form input soal.
+Ambil semua passage. Umumnya dipanggil dengan filter `kode_subject` via query param untuk populate dropdown di form input soal.
 
 **Headers**
 ```
@@ -126,7 +127,70 @@ GET /api/passages?kode_subject=SUB-002-xxx
 
 ---
 
-## 2. POST /api/passages
+## 2. GET /api/passages/subject/{kode_subject}
+
+Ambil semua passage berdasarkan mata pelajaran via **path param**. Cocok dipakai di frontend untuk populate dropdown passage saat mapel sudah dipilih — URL lebih eksplisit dibanding query param.
+
+**Perbedaan dengan endpoint #1:**
+
+| | `GET /api/passages?kode_subject=xxx` | `GET /api/passages/subject/{kode_subject}` |
+|---|---|---|
+| Filter mapel | Query param (opsional) | Path param (wajib) |
+| Hasil kosong | List kosong `[]` | Kembalikan list kosong `[]` |
+| Use case | List semua passage, filter opsional | Fokus passage satu mapel |
+
+**Headers**
+```
+Authorization: Bearer {token}
+```
+
+**Parameter URL**
+
+| Parameter | Keterangan |
+|-----------|------------|
+| `kode_subject` | Kode mata pelajaran, contoh: `SUB-002-250515090000` |
+
+**Contoh Request**
+```
+GET /api/passages/subject/SUB-002-250515090000
+```
+
+**Response 200 — Berhasil**
+```json
+{
+    "statusCode": 200,
+    "message": "Daftar teks bacaan berhasil diambil",
+    "data": [
+        {
+            "kode_passage": "PAS-001-250515143022",
+            "kode_subject": "SUB-002-xxx",
+            "title": "Bacaan 1 — Pertanian",
+            "description": "Untuk soal nomor 1-3, bacalah teks berikut ini dengan seksama",
+            "content": "<p>Di sebuah daerah pertanian, perubahan pola curah hujan...</p>",
+            "seq": 1,
+            "created_at": "2025-05-15T14:30:22.000000Z",
+            "updated_at": "2025-05-15T14:30:22.000000Z",
+            "subject": {
+                "kode_subject": "SUB-002-xxx",
+                "name": "Bahasa Indonesia"
+            }
+        }
+    ]
+}
+```
+
+**Response 500 — Server Error**
+```json
+{
+    "statusCode": 500,
+    "message": "Gagal mengambil data teks bacaan",
+    "data": null
+}
+```
+
+---
+
+## 3. POST /api/passages
 
 Buat passage baru. Setelah passage dibuat, gunakan `kode_passage` yang dikembalikan saat membuat soal via `POST /api/questions`.
 
@@ -202,7 +266,7 @@ Content-Type: application/json
 
 ---
 
-## 3. GET /api/passages/{kode_passage}
+## 4. GET /api/passages/{kode_passage}
 
 Detail satu passage beserta semua soal yang menggunakannya.
 
@@ -278,7 +342,7 @@ Authorization: Bearer {token}
 
 ---
 
-## 4. PUT /api/passages/{kode_passage}
+## 5. PUT /api/passages/{kode_passage}
 
 Update data passage. Semua field bersifat `sometimes` — kirim hanya yang ingin diubah.
 
@@ -346,7 +410,7 @@ Content-Type: application/json
 
 ---
 
-## 5. PATCH /api/passages/{kode_passage}/update
+## 6. PATCH /api/passages/{kode_passage}/update
 
 Update sebagian field passage. Minimal 1 field harus dikirim.
 
@@ -421,7 +485,7 @@ Content-Type: application/json
 
 ---
 
-## 6. DELETE /api/passages/{kode_passage}
+## 7. DELETE /api/passages/{kode_passage}
 
 Hapus passage. **Gagal** jika masih ada soal yang terikat.
 
