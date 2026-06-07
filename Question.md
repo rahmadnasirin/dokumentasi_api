@@ -40,7 +40,7 @@ saat ujian mulai:
 
 | Method | Endpoint | Fungsi |
 |--------|----------|--------|
-| GET | `/api/questions` | Ambil bank soal dengan pagination |
+| GET | `/api/questions` | Ambil bank soal dengan pagination + search |
 | GET | `/api/questions/subject/{kode_subject}` | Ambil soal berdasarkan mata pelajaran |
 | POST | `/api/questions` | Buat soal + pilihan jawaban |
 | GET | `/api/questions/{kode_soal}` | Detail soal (tanpa jawaban benar) |
@@ -169,6 +169,8 @@ if (type == 1) {
 
 Ambil bank soal dengan pagination. Default 20 soal per halaman. Sudah include relasi `subject`, `passage`, dan `options`.
 
+Mendukung **pencarian teks** via parameter `search` yang akan mencari di kolom `question`, `kode_soal`, `chapter`, dan `keterangan` secara bersamaan.
+
 > `correct_answer` dan `discussion` **tidak ikut** di response ini.
 > Gunakan endpoint `/answer` khusus untuk admin.
 
@@ -176,19 +178,37 @@ Ambil bank soal dengan pagination. Default 20 soal per halaman. Sudah include re
 
 | Parameter | Keterangan |
 |-----------|------------|
+| `search` | **[NEW]** Cari teks di kolom `question`, `kode_soal`, `chapter`, `keterangan` (case-insensitive, partial match) |
 | `kode_subject` | Filter by kode mata pelajaran |
 | `type` | `1` = pilihan ganda, `2` = esai |
 | `difficulty` | `mudah` `sedang` `sulit` |
 | `tahun` | Filter by tahun soal |
-| `chapter` | Filter by bab/topik |
+| `chapter` | Filter by bab/topik (exact match) |
 | `has_passage` | `1` = hanya soal dengan bacaan, `0` = tanpa bacaan |
 | `per_page` | Jumlah per halaman, default `20` |
 
+> `search` dan filter lain bisa dikombinasikan bebas.
+> Contoh: cari kata "integral" di soal Matematika tahun 2025.
+
 **Contoh Request**
 ```
-GET /api/questions?kode_subject=SUB-001-xxx
+GET /api/questions?search=pythagoras
+GET /api/questions?search=integral&kode_subject=SUB-001-xxx
+GET /api/questions?search=aljabar&difficulty=mudah&tahun=2025
 GET /api/questions?kode_subject=SUB-001-xxx&difficulty=mudah&tahun=2025
 GET /api/questions?has_passage=1&per_page=10
+```
+
+**Implementasi BE (tambahan di `index()`):**
+```php
+if ($request->filled('search')) {
+    $query->where(function ($q) use ($request) {
+        $q->where('question', 'like', '%' . $request->search . '%')
+          ->orWhere('kode_soal', 'like', '%' . $request->search . '%')
+          ->orWhere('chapter', 'like', '%' . $request->search . '%')
+          ->orWhere('keterangan', 'like', '%' . $request->search . '%');
+    });
+}
 ```
 
 **Response 200 — Berhasil**
@@ -272,9 +292,10 @@ GET /api/questions/subject/SUB-001-xxx?type=1&tahun=2025&per_page=10
 | | `GET /api/questions` | `GET /api/questions/subject/{kode_subject}` |
 |---|---|---|
 | Filter mapel | Query param `?kode_subject=` | URL param (wajib) |
+| Search teks | ✅ Via `?search=` | ❌ Tidak tersedia |
 | Relasi `subject` | ✅ Disertakan | ❌ Tidak disertakan (redundant) |
 | Hasil kosong | Kembalikan list kosong | Return `404` |
-| Use case | List semua soal lintas mapel | Fokus soal satu mapel |
+| Use case | List semua soal lintas mapel + search | Fokus soal satu mapel |
 
 **Response 200 — Berhasil**
 ```json
